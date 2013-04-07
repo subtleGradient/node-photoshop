@@ -8,6 +8,14 @@ require('./').invoke(recentFilesThatExist_jsx, function(error, recentFiles){
 
 ////////////////////////////////////////////////////////////////////////////////
 
+var photoshop = require('./')
+photoshop.debug = true
+photoshop.invoke(function(){return app}, function(error, app){
+  console.log(app)
+})
+
+////////////////////////////////////////////////////////////////////////////////
+
 function setColor_jsx(color){
   app.foregroundColor.rgb.red = color.red
   app.foregroundColor.rgb.green = color.green
