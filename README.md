@@ -1,5 +1,7 @@
 # Photoshop scripting with Node.js
 
+    npm install photoshop
+
 ---
 
 ## `photoshop.invoke(fn, [args,] callback)`
