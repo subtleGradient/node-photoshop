@@ -1,0 +1,28 @@
+{
+  "name": "photoshop",
+  "version": "0.2.0",
+  "description": "Control Adobe Photoshop from Node.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/subtleGradient/node-photoshop.git"
+  },
+  "keywords": [
+    "adobe",
+    "photoshop",
+    "graphics",
+    "layers",
+    "layout",
+    "image",
+    "filter",
+    "psd",
+    "png",
+    "pdf"
+  ],
+  "author": "Thomas Aylott <oblivious@subtlegradient.com>",
+  "copyright": "2013 Facebook",
+  "license": "MIT"
+}

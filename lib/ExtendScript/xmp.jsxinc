@@ -1,0 +1,73 @@
+function ao_XMP(){
+  if (!(this instanceof ao_XMP)) throw Error('this is a constructor, you must use `new`');
+  this.Namespace = Namespace
+  this.XMPMeta = XMPMeta
+}
+
+ao_XMP._load = function(){
+  return ExternalObject.AdobeXMPScript = new ExternalObject('lib:AdobeXMPScript')
+}
+
+ao_XMP._unload = function(){
+  if (ExternalObject.AdobeXMPScript && ExternalObject.AdobeXMPScript.unload)
+    ExternalObject.AdobeXMPScript.unload()
+  return delete ExternalObject.AdobeXMPScript
+}
+
+ao_XMP.require = function(callback){
+  var XMP
+  try {
+    XMP = ao_XMP._load()
+  }
+  catch(e){return callback(e)}
+  try {
+    return callback(null, new ao_XMP())
+  }
+  finally {
+    ao_XMP._unload()
+  }
+}
+
+ao_XMP.NS_JSON = 'https://github.com/subtleGradient/node-photoshop-inspector-server'
+
+ao_XMP.setJSON = function(rawData, key, value){
+  return this.require(function(){
+    XMPMeta.registerNamespace(ao_XMP.NS_JSON, 'json')
+    var xmp = new XMPMeta(rawData || '')
+    xmp.setProperty(ao_XMP.NS_JSON, key, JSON.stringify(value))
+    return xmp.serialize()
+  })
+}
+
+ao_XMP.getJSON = function(rawData, key, defaultValue){
+  return this.require(function(){
+    XMPMeta.registerNamespace(ao_XMP.NS_JSON, 'json')
+    return ao_XMP.XMPMeta_getJSON(new XMPMeta(rawData || ''), key, defaultValue)
+  })
+}
+ao_XMP.XMPMeta_getJSON = function(xmp, key, defaultValue){
+  var value = xmp.getProperty(ao_XMP.NS_JSON, key).toString()
+  try{value = JSON.parse(value)}catch(e){}
+  if (value === undefined) value = defaultValue;
+  return value
+}
+
+ao_XMP.keys = function(rawData){
+  // Yes, this is lame. But it works well enough for now to let me move on with my life.
+  return rawData.match(/<\w+:\w+/g)
+  .map(function(string){return string.replace('<','')})
+  // .map(function(string){return string.split(':')})
+}
+
+ao_XMP.parse = function(rawData){
+  return this.require(function(){
+    XMPMeta.registerNamespace(ao_XMP.NS_JSON, 'json')
+    var xmp = new XMPMeta(rawData || '')
+    return ao_XMP.keys(rawData).reduce(function(parsed, key){
+      if (key.indexOf('json') == 0){
+        parsed[key.split(':')[1]] = ao_XMP.XMPMeta_getJSON(xmp, key)
+      }
+      return parsed
+    }, {})
+  })
+}

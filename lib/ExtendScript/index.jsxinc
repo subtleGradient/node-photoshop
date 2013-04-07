@@ -1,0 +1,13 @@
+// Polyfill
+#include "./vendor/es5-sham.js"
+#include "./vendor/es5-shim.js"
+#include "./vendor/json2.js"
+#include "./console.jsxinc"
+
+// Extend
+#include "./tojson.jsxinc"
+
+// Helpers
+#include "./PSFakeDOM2.jsxinc"
+#include "./ao-psaction.jsxinc"
+#include "./xmp.jsxinc"

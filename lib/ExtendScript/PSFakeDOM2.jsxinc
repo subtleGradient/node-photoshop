@@ -1,0 +1,391 @@
+var PSFakeDOM = typeof exports == 'object' ? exports : {}
+
+PSFakeDOM.getLayerCount = function getLayerCount() {
+	var ref = new ActionReference;
+	ref.putProperty(stringIDToTypeID("property"), stringIDToTypeID("numberOfLayers"));
+	ref.putEnumerated(stringIDToTypeID("document"), stringIDToTypeID("ordinal"), stringIDToTypeID("targetEnum"));
+  return executeActionGet(ref).getInteger(stringIDToTypeID("numberOfLayers")) + 1
+}
+
+PSFakeDOM.hasBackground = function hasBackground(){try{activeDocument.backgroundLayer;return true}catch(e){return false}}
+
+PSFakeDOM.getLayerActionDescriptors = function getLayerActionDescriptors(){
+  var ref
+  var layerCount = PSFakeDOM.getLayerCount()
+  var index = layerCount
+  var layers = []
+  
+  while (index-- > 0){
+    ref = new ActionReference
+    ref.putIndex(app.charIDToTypeID("Lyr "), index)
+    try {layers.push(executeActionGet(ref))}
+    catch(e){}
+  }
+  return layers
+}
+
+PSFakeDOM.executeActionGet = app.executeActionGet.bind(app)
+PSFakeDOM.executeAction = app.executeAction.bind(app)
+
+PSFakeDOM.invokeToJSON = function invokeToJSON(layer){ return layer.toJSON() }
+
+PSFakeDOM.layers_populateChildLayerIDs = function layers_populateChildLayerIDs(layers, root){
+  var layersByID = {}, parentId
+  if (root == null) root = {
+    layerID: -1,
+    _childLayerIDs: [],
+    _childCount: 0,
+    // _jsPath: 'app.activeDocument',
+    _namePath: [app.activeDocument.name]
+  }
+  parentId = root.layerID
+  childIndex = 0
+  layersByID[parentId] = root
+  
+  layers.filter(Boolean).forEach(function(layer, index){
+    // Close Layer Group
+    // if (layer.name == '</Layer group>'){
+    if (layer.layerSection.stringID == 'layerSectionEnd'){
+      layer._groupEnd = true
+      parentId = layersByID[parentId]._parentId
+      return
+    }
+    
+    // Normal Layer
+    layersByID[layer.layerID] = layer
+    layer._parentId = parentId
+    layer._childIndex = layersByID[parentId]._childCount++
+    layer._namePath = layersByID[parentId]._namePath.concat(layer.name)
+    // layer._jsPath = layersByID[parentId]._jsPath + '.layers[' + layer._childIndex + ']'
+    if (!layersByID[parentId]._childLayerIDs) layersByID[parentId]._childLayerIDs = []
+    layersByID[parentId]._childLayerIDs.push(layer.layerID)
+    
+    // Layer Group
+    if (layer.layerSection.stringID == 'layerSectionStart'){
+      layer._childCount = 0
+      parentId = layer.layerID
+    }
+  })
+  return layersByID
+}
+
+PSFakeDOM.getMetaDataForLayerId = function(layerID){
+	var ref = new ActionReference;
+	ref.putProperty(stringIDToTypeID("property"), stringIDToTypeID("metadata"));
+	ref.putIdentifier(stringIDToTypeID("layer"), layerID);
+  return executeActionGet(ref).getObjectValue(stringIDToTypeID('metadata'));
+}
+
+PSFakeDOM.requestChildNodes = function requestChildNodes(layerID, depth){
+  if (depth == null) depth = 1
+  var children
+  // TODO: Add support for more depths
+  var layersByID = PSFakeDOM.getLayers()
+  children = layersByID[layerID]._childLayerIDs.map(function(layerID){
+    return layersByID[layerID]
+  })
+  return children
+}
+
+PSFakeDOM.LayerKeyWhitelist = {
+  _parentId:1,
+  _childLayerIDs:1,
+  
+  visibleChannels:0,
+  vectorMaskFeather:0,
+  vectorMaskDensity:0,
+  userMaskFeather:0,
+  userMaskDensity:0,
+  useAlignedRendering:0,
+  targetChannels:0,
+  preserveTransparency:0,
+  mode:0,
+  layerLocking:0,
+  itemIndex:0,
+  group:0,
+  globalAngle:0,
+  fillOpacity:0,
+  count:0,
+  color:0,
+  channelRestrictions:0,
+  background:0,
+  
+  layerID:1,
+  name:1,
+  
+  textKey:1,
+  smartObject:1,
+  bounds:1,
+  layerSection:1,
+  visible:1,
+  opacity:1,
+  layerFXVisible:1,
+  layerEffects:1,
+  hasFilterMask:1,
+  hasUserMask:1,
+  hasVectorMask:1,
+  adjustment:1,
+  
+  metadata:1,
+}
+
+PSFakeDOM.LayerKeyBlacklist = {}
+
+PSFakeDOM._cache = null
+
+PSFakeDOM.getLayers = function getLayers(LayerKeyWhitelist){
+  if (PSFakeDOM._cache) return PSFakeDOM._cache;
+  if (LayerKeyWhitelist == null) LayerKeyWhitelist = PSFakeDOM.LayerKeyWhitelist
+  var layers = PSFakeDOM.layers_populateChildLayerIDs(
+    PSFakeDOM.getLayerActionDescriptors().map(PSFakeDOM.invokeToJSON).map(function(layer){
+      var flatLayer = {}
+      for (var key in layer) {
+        if (!LayerKeyWhitelist[key]) {
+          if (PSFakeDOM.debug) PSFakeDOM.LayerKeyBlacklist[key] = layer[key]
+          continue;
+        }
+        var value = layer[key]
+        // if (value != null && typeof value == 'object' && 'toJSON' in value) value = value.toJSON()
+        flatLayer[key] = value
+      }
+      if (LayerKeyWhitelist.metadata){
+        flatLayer.metadata = PSFakeDOM.getMetaDataForLayerId(layer.layerID)
+        try {
+          flatLayer.parsedMetadata = ao_XMP.parse(flatLayer.metadata.ao_getValue(stringIDToTypeID('layerXMP')))
+        }
+        catch(e){
+          flatLayer.parsedMetadata = {_parseError:e}
+        }
+      }
+      return flatLayer
+    })
+  )
+  return PSFakeDOM._cache = layers
+}
+
+PSFakeDOM.getLayersArray = function(){
+  var layers = PSFakeDOM.getLayers()
+  return Object.keys(layers).map(function(id){ return layers[id] })
+}
+
+PSFakeDOM.getDocumentNode = function getDocumentNode(){
+  var doc = app.activeDocument
+  var docObj = {
+    layerId: -1,
+    type: 'document',
+    bounds: {
+      left: 0,
+      top: 0,
+      width: doc.width.as('px'),
+      height: doc.height.as('px'),
+    },
+    children: PSFakeDOM.requestChildNodes(-1, 1),
+  }
+  try { docObj.name = doc.name } catch(e){ docObj.name = 'Untitled' }
+  try { docObj.path = decodeURIComponent(doc.fullName) } catch(e){ docObj.path = '/tmp/Untitled.psd' }
+  
+  docObj.bounds.right = docObj.bounds.width
+  docObj.bounds.bottom = docObj.bounds.height
+  return docObj
+}
+
+PSFakeDOM.openFileAtPath = function openFileAtPath(path){
+  path = new File(path)
+  if (!path.exists) throw Error("doesn't exist: '" + path + "'");
+  
+  var desc = new ActionDescriptor
+  desc.putPath(charIDToTypeID("null"), path)
+  return executeAction(charIDToTypeID("Opn "), desc, DialogModes.NO)
+}
+
+PSFakeDOM.layerRefsSelected = function(){var ref = new ActionReference; ref.putEnumerated(stringIDToTypeID("layer"), stringIDToTypeID("ordinal"), stringIDToTypeID("targetEnum")); return ref}
+PSFakeDOM.layerRefForId = PSFakeDOM.getLayerRefById = function getLayerRefById(layerID){ var ref = new ActionReference; ref.putIdentifier(app.charIDToTypeID("Lyr "), layerID); return ref }
+PSFakeDOM.layerRefForName = PSFakeDOM.getLayerRefByName = function getLayerRefByName(layerName){ var ref = new ActionReference; ref.putName(app.charIDToTypeID("Lyr "), layerName); return ref }
+PSFakeDOM.layerRefForIndex = PSFakeDOM.getLayerRefByIndex = function getLayerRefByIndex(layerIndex){ var ref = new ActionReference; ref.putIndex(app.charIDToTypeID("Lyr "), layerIndex); return ref }
+
+PSFakeDOM.layerRef_select = PSFakeDOM.selectLayerByRef = function selectLayerByRef(layerRef){
+  var idslct = charIDToTypeID( "slct" );
+      var desc104 = new ActionDescriptor();
+      var idnull = charIDToTypeID( "null" );
+      desc104.putReference( idnull, layerRef );
+      var idMkVs = charIDToTypeID( "MkVs" );
+      desc104.putBoolean( idMkVs, false );
+  executeAction( idslct, desc104, DialogModes.NO );
+}
+
+PSFakeDOM.findUniqueStyles = function findUniqueStyles(){
+  var styles = []
+  var _uniqueStyles = {}
+  var layers = PSFakeDOM.getLayerActionDescriptors().map(PSFakeDOM.invokeToJSON)
+  
+  layers.forEach(function(layer){
+    var id = uniqueLayerStyleId(layer)
+    if (!_uniqueStyles[id]){
+      _uniqueStyles[id] = {layerIDs:[], layerEffects:layer.layerEffects, adjustment:layer.adjustment, opacity:layer.opacity}
+      styles.push(_uniqueStyles[id])
+    }
+    _uniqueStyles[id].layerIDs.push(layer.layerID)
+  })
+  function uniqueLayerStyleId(layer){return JSON.stringify([layer.layerEffects, layer.adjustment, layer.opacity])}
+  
+  return styles
+}
+
+/* THIS IS SUPER SLOW AND STUFF
+PSFakeDOM.populateValues = function(keys, ids){
+  var layers = PSFakeDOM.getLayers()
+  if (ids == null) ids = Object.keys(layers);
+  var source = PSFakeDOM.generatePopulateValuesFunction(keys, ids)
+  Function('layers', source)(layers)
+  return layers
+}
+
+PSFakeDOM.generatePopulateValuesFunction = function(keys, ids){
+  var layers = PSFakeDOM.getLayers()
+  if (ids == null) ids = Object.keys(layers);
+  if (!Array.isArray(keys)) keys = [keys]
+  var source = keys.map(function(key){
+    return ids.map(function(id){ return 'layers["' + id + '"][' + JSON.stringify(key) + '] = ' + layers[id]._jsPath +'.'+ key }).join(';\n')
+  }).join('\n')
+  return source + '\nreturn layers'
+}
+*/
+
+PSFakeDOM.getLayerIds = function(){
+  var ref
+  var index = PSFakeDOM.getLayerCount()
+  var layerIDs = []
+  
+  while (index-- > 0){
+    ref = new ActionReference;
+    ref.putProperty(stringIDToTypeID("property"), stringIDToTypeID("layerID"));
+    ref.putIndex(stringIDToTypeID("layer"), index);
+    try { layerIDs.push(executeActionGet(ref).getInteger(stringIDToTypeID("layerID"))) }
+    catch(e){}
+  }
+  return layerIDs
+}
+
+PSFakeDOM.getLayerIdsByTime = function(time){
+  if (time == null) time = app.activeDocument.fullName.modified;
+  if (typeof time == 'object') time = +time;
+  if (isNaN(time)) throw Error('NaN');
+  
+  return PSFakeDOM.getLayerIds().filter(function(layerID){
+    return time < PSFakeDOM.getMetaDataForLayerId(layerID).getDouble(stringIDToTypeID('layerTime')) * 1000
+  })
+}
+
+PSFakeDOM.layerPropertyNames = function(){
+  return Object.keys(PSFakeDOM.setLayer)
+}
+
+PSFakeDOM.setLayer = function(layerRef, values){
+  return Object.keys(values).map(function(key){
+    if (key.indexOf('meta-') == 0){
+      return PSFakeDOM['setLayer_meta-'](layerRef, key.replace('meta-',''), value)
+    }
+    var value = values[key]
+    var setter = PSFakeDOM['setLayer_' + key]
+    if (typeof setter != 'function') return Error('"' + key + '" is readonly');
+    return setter(layerRef, value)
+  })
+}
+
+PSFakeDOM['setLayer_meta-'] = function(layerRef, key, value){
+  
+}
+
+PSFakeDOM['setLayer_opacity'] = function(layerRef, value){
+  // PSFakeDOM.layerRef_select(layerRef)
+  executeAction(stringIDToTypeID("set"), (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("null" in config)  descriptor.putReference(stringIDToTypeID("null"), config["null"]);
+    if ("to" in config)  descriptor.putObject(stringIDToTypeID("to"), stringIDToTypeID("layer"), config["to"]);
+    return descriptor
+  })({
+    "null":  layerRef,
+    "to":  (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("opacity" in config)  descriptor.putUnitDouble(stringIDToTypeID("opacity"), stringIDToTypeID("percentUnit"), config["opacity"]);
+    return descriptor
+  })({
+    "opacity": value * 100
+  })
+  }), DialogModes.NO);
+}
+
+PSFakeDOM['setLayer_opacity'] = function(layerRef, value){
+  // PSFakeDOM.layerRef_select(layerRef)
+  executeAction(stringIDToTypeID("set"), (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("null" in config)  descriptor.putReference(stringIDToTypeID("null"), config["null"]);
+    if ("to" in config)  descriptor.putObject(stringIDToTypeID("to"), stringIDToTypeID("layer"), config["to"]);
+    return descriptor
+  })({
+    "null":  layerRef,
+    "to":  (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("opacity" in config)  descriptor.putUnitDouble(stringIDToTypeID("opacity"), stringIDToTypeID("percentUnit"), config["opacity"]);
+    return descriptor
+  })({
+    "opacity": value * 100
+  })
+  }), DialogModes.NO);
+}
+
+PSFakeDOM.setLayer_source = function(layerRef, value){
+  if (layerRef == null) layerRef = PSFakeDOM.layerRefsSelected()
+  PSFakeDOM.layerRef_select(layerRef)
+  var descriptor = new ActionDescriptor
+  descriptor.putPath(stringIDToTypeID("null"), new File(encodeURIComponent(value)))
+  executeAction(stringIDToTypeID("placedLayerReplaceContents"), descriptor, DialogModes.NO)
+}
+PSFakeDOM.setLayer_sourceMeta = function(layerRef, value){
+  var xmpMetadata
+  try {
+    xmpMetadata = PSFakeDOM.getMetaDataForLayerId(PSFakeDOM.executeActionGet(layerRef).getInteger(stringIDToTypeID('layerID'))).ao_getValue(stringIDToTypeID('layerXMP'))
+  }
+  catch(e){
+    xmpMetadata = ""
+  }
+  PSFakeDOM.setLayer_xmpMetadata(layerRef, ao_XMP.setJSON(xmpMetadata, 'source', value))
+}
+
+PSFakeDOM.setLayer_xmpMetadata = function(layerRef, value){
+  PSFakeDOM.layerRef_select(layerRef)
+  app.activeDocument.activeLayer.xmpMetadata.rawData = value
+}
+
+PSFakeDOM['setLayer_opacity'] = function(layerRef, value){
+  // PSFakeDOM.layerRef_select(layerRef)
+  executeAction(stringIDToTypeID("set"), (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("null" in config)  descriptor.putReference(stringIDToTypeID("null"), config["null"]);
+    if ("to" in config)  descriptor.putObject(stringIDToTypeID("to"), stringIDToTypeID("layer"), config["to"]);
+    return descriptor
+  })({
+    "null":  layerRef,
+    "to":  (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("opacity" in config)  descriptor.putUnitDouble(stringIDToTypeID("opacity"), stringIDToTypeID("percentUnit"), config["opacity"]);
+    return descriptor
+  })({
+    "opacity": value * 100
+  })
+  }), DialogModes.NO);
+}
+
+PSFakeDOM['setLayer_styledTextContent'] = function(layerRef, value){
+  throw Error('lulz')
+}
+
+// PSFakeDOM.parseMetadata = function(rawData){
+//   return ao_XMP.require(function(XMP){
+//     return new XMPMeta(rawData)
+//   })
+// }
+
+PSFakeDOM.getDocumentPath = function(){
+  return app.activeDocument.fullName.fsName
+}
