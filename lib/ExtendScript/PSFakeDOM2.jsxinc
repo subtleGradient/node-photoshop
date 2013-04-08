@@ -79,7 +79,7 @@ PSFakeDOM.getMetaDataForLayerId = function(layerID){
 PSFakeDOM.getParsedMetaDataForLayerId = function(layerID){
   var metadata = PSFakeDOM.getMetaDataForLayerId(layerID)
   try {
-    var layerXMP = flatLayer.metadata.ao_getValue(stringIDToTypeID('layerXMP'))
+    var layerXMP = metadata.ao_getValue(stringIDToTypeID('layerXMP'))
   } catch(e){}
   return ao_XMP.parse(layerXMP)
 }
