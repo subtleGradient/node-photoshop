@@ -54,8 +54,9 @@ ao_XMP.XMPMeta_getJSON = function(xmp, key, defaultValue){
 
 ao_XMP.keys = function(rawData){
   // Yes, this is lame. But it works well enough for now to let me move on with my life.
-  return rawData.match(/<\w+:\w+/g)
-  .map(function(string){return string.replace('<','')})
+  var matches = String(rawData).match(/<\w+:\w+/g)
+  if (!matches) return []
+  return matches.map(function(string){return string.replace('<','')})
   // .map(function(string){return string.split(':')})
 }
 

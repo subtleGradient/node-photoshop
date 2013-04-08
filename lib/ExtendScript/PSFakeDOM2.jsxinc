@@ -76,6 +76,14 @@ PSFakeDOM.getMetaDataForLayerId = function(layerID){
   return executeActionGet(ref).getObjectValue(stringIDToTypeID('metadata'));
 }
 
+PSFakeDOM.getParsedMetaDataForLayerId = function(layerID){
+  var metadata = PSFakeDOM.getMetaDataForLayerId(layerID)
+  try {
+    var layerXMP = flatLayer.metadata.ao_getValue(stringIDToTypeID('layerXMP'))
+  } catch(e){}
+  return ao_XMP.parse(layerXMP)
+}
+
 PSFakeDOM.requestChildNodes = function requestChildNodes(layerID, depth){
   if (depth == null) depth = 1
   var children
@@ -150,23 +158,7 @@ PSFakeDOM.getLayers = function getLayers(LayerKeyWhitelist){
       }
       if (LayerKeyWhitelist.metadata){
         flatLayer.metadata = PSFakeDOM.getMetaDataForLayerId(layer.layerID)
-        try {
-          flatLayer.parsedMetadata = ao_XMP.parse(flatLayer.metadata.ao_getValue(stringIDToTypeID('layerXMP')))
-        }
-        catch(e){
-          flatLayer.parsedMetadata = {
-            _parseError: {
-              "name":e.name,
-              "number": e.number,
-              "message":e.message,
-              "description":e.description,
-              
-              "fileName": e.fileName,
-              "source": e.source.split(/(?:\r|\n)+/)[e.line - 1],
-              "line": e.line, "start":e.start, "end":e.end,
-            }
-          }
-        }
+        flatLayer.parsedMetadata = PSFakeDOM.getParsedMetaDataForLayerId(layer.layerID)
       }
       return flatLayer
     })
@@ -353,13 +345,10 @@ PSFakeDOM.setLayer_source = function(layerRef, value){
   executeAction(stringIDToTypeID("placedLayerReplaceContents"), descriptor, DialogModes.NO)
 }
 PSFakeDOM.setLayer_sourceMeta = function(layerRef, value){
-  var xmpMetadata
-  try {
-    xmpMetadata = PSFakeDOM.getMetaDataForLayerId(PSFakeDOM.executeActionGet(layerRef).getInteger(stringIDToTypeID('layerID'))).ao_getValue(stringIDToTypeID('layerXMP'))
-  }
-  catch(e){
-    xmpMetadata = ""
-  }
+  var layerID = PSFakeDOM.executeActionGet(layerRef).getInteger(stringIDToTypeID('layerID'))
+  var metadata = PSFakeDOM.getMetaDataForLayerId(layerID)
+  var xmpMetadata = ''
+  try { metadata.ao_getValue(stringIDToTypeID('layerXMP')) }catch(e){}
   PSFakeDOM.setLayer_xmpMetadata(layerRef, ao_XMP.setJSON(xmpMetadata, 'source', value))
 }
 
