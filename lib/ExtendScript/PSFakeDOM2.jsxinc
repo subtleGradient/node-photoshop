@@ -154,7 +154,18 @@ PSFakeDOM.getLayers = function getLayers(LayerKeyWhitelist){
           flatLayer.parsedMetadata = ao_XMP.parse(flatLayer.metadata.ao_getValue(stringIDToTypeID('layerXMP')))
         }
         catch(e){
-          flatLayer.parsedMetadata = {_parseError:e}
+          flatLayer.parsedMetadata = {
+            _parseError: {
+              "name":e.name,
+              "number": e.number,
+              "message":e.message,
+              "description":e.description,
+              
+              "fileName": e.fileName,
+              "source": e.source.split(/(?:\r|\n)+/)[e.line - 1],
+              "line": e.line, "start":e.start, "end":e.end,
+            }
+          }
         }
       }
       return flatLayer
