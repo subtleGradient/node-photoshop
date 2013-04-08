@@ -23,6 +23,10 @@
     "pdf"
   ],
   
+  "devDependencies":[
+    "tap"
+  ],
+  
   "os":["darwin"],
   
   "author": "Thomas Aylott <oblivious@subtlegradient.com>",
