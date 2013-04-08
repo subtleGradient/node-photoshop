@@ -1,3 +1,7 @@
+if (typeof JSON != 'object'){
+  #include "./vendor/json2.js"
+}
+
 if (typeof this.console != 'object'){
   this.console = {
     log: function(){$.writeln.call($, JSON.stringify(arguments[0]))},

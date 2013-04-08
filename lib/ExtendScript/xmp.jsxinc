@@ -1,3 +1,11 @@
+if (typeof Array.prototype.map != 'function'){
+  #include "./vendor/es5-sham.js"
+  #include "./vendor/es5-shim.js"
+}
+if (typeof console != 'object'){
+  #include "./console.jsxinc"
+}
+
 function ao_XMP(){
   if (!(this instanceof ao_XMP)) throw Error('this is a constructor, you must use `new`');
   this.Namespace = Namespace
