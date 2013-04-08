@@ -89,7 +89,7 @@ photoshop.invoke = function(fn, args, callback){
   photoshop.run(';try{JSON.stringify(' + fn + '(' + JSON.stringify(args).replace(/^\[|\]$/g,'') + '))}catch(e){JSON.stringify(e)};', function(err, out, error){
     if (err) return callback(err, error || out)
     try { out = JSON.parse(out) }catch(e){}
-    callback(null, out)
+    callback && callback(null, out)
   })
 }
 
