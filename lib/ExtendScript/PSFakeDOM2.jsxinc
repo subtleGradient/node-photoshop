@@ -70,9 +70,9 @@ PSFakeDOM.layers_populateChildLayerIDs = function layers_populateChildLayerIDs(l
 }
 
 PSFakeDOM.getMetaDataForLayerId = function(layerID){
-	var ref = new ActionReference;
-	ref.putProperty(stringIDToTypeID("property"), stringIDToTypeID("metadata"));
-	ref.putIdentifier(stringIDToTypeID("layer"), layerID);
+  var ref = new ActionReference;
+  ref.putProperty(stringIDToTypeID("property"), stringIDToTypeID("metadata"));
+  ref.putIdentifier(stringIDToTypeID("layer"), layerID);
   return executeActionGet(ref).getObjectValue(stringIDToTypeID('metadata'));
 }
 
