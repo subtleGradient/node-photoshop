@@ -4,7 +4,7 @@
   "description": "Control Adobe Photoshop from Node.js",
   "main": "index.js",
   "scripts": {
-    "test": "node index.js"
+    "test": "tap test/test-*.js"
   },
   "repository": {
     "type": "git",
