@@ -28,7 +28,8 @@
   ],
   
   "devDependencies":[
-    "tap"
+    "tap",
+    "json-scrape"
   ],
   
   "os":["darwin"],
