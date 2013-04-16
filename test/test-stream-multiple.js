@@ -4,7 +4,7 @@ var createStream = require('../lib/photoshop-stream').createStream
 
 t.test('stream write', function(t){
   
-  var stream = createStream(function(streamAddress){
+  var stream = createStream(function(error, streamAddress){
     
     psEval(function(a, b, streamAddress, c){
       
@@ -12,7 +12,7 @@ t.test('stream write', function(t){
       socket.open(streamAddress)
       socket.write(a+b+c)
       
-    }, [1, 2, streamAddress, 3], function(){})
+    }, [1, 2, streamAddress, 3])
     
   })
   
