@@ -110,6 +110,8 @@ photoshop.invoke = function(fn, args, callback){
   })
 }
 
+photoshop.createStream = require('./lib/photoshop-stream').psStream
+
 ////////////////////////////////////////////////////////////////////////////////
 
 if (module.id == '.') {
