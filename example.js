@@ -24,3 +24,13 @@ var config = {
 require('./').invoke(setColor_jsx, [config], function(error, foregroundColor){
   console.log('#' + foregroundColor)
 })
+
+////////////////////////////////////////////////////////////////////////////////
+
+function streamColorChanges_jsx(stream, setColor_jsx, config){
+  stream.writeln(setColor_jsx(config))
+  alert("Photoshop won't return until this window is closed, but the stream already sent its data!")
+}
+
+require('./').createStream(streamColorChanges_jsx, [setColor_jsx, config])
+.pipe(process.stdout)
