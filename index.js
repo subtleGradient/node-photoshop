@@ -1,6 +1,7 @@
 /*jshint asi:true evil:true laxbreak:true*/
 
 var photoshop = exports
+var psEval = require('./lib/photoshop-eval')
 
 var PSLIB_PATHS = [
   __dirname + '/lib/ExtendScript/index.jsxinc',
@@ -63,13 +64,29 @@ function runReal(){
   
   photoshop.debug && console.warn(script + '\n\n')
   
-  // FIXME: Buffer overflow
-  execFile(__dirname + '/bin/photoshop-eval.sh', [script], function(code, out, err){
-    runReal.isRunning = false
-    process.nextTick(runReal)
-    out = out.replace(/\n$/,'')
-    callback(code && err || code || null, out)
+  var result = ''
+  
+  var _callback = callback
+  callback = function(error, result){
+    if (_callback) {
+      runReal.isRunning = false
+      process.nextTick(runReal)
+      var cb = _callback
+      _callback = null
+      cb(error, result)
+    }
+  }
+  
+  var evalStream = psEval(script)
+  
+  evalStream.on('data', function(data){
+    result += data
   })
+  evalStream.once('error', callback)
+  evalStream.on('end', function(){
+    callback(null, result)
+  })
+  
   
 }
 
@@ -99,19 +116,9 @@ if (module.id == '.') {
   
   photoshop.debug = true
   
-  // photoshop.invoke(
-  //   function(){
-  //     return PSFakeDOM.selectLayerByRef(PSFakeDOM.getLayerRefById(2632))
-  //   },
-  //   function(error, result){
-  //     if (error) return console.warn(error);
-  //     console.log(result)
-  //   }
-  // )
-  
   photoshop.run('1+1', function(err, out){
     console.log('Test', err, out)
-    console.assert(out === '2')
+    console.assert(out.charAt(0) === '2')
   })
   
   photoshop.execute('return 1+1', function(err, out){
@@ -119,22 +126,28 @@ if (module.id == '.') {
     console.assert(out === 2)
   })
   
-  photoshop.invoke('PSFakeDOM.getDocumentNode', function(error, document){
-    if (error) return console.warn(error)
-    console.log(document)
+  photoshop.invoke(function(path){ app.open(File(path)) }, [__dirname + '/test/stuff/some stuff.psd'], function(error){
+    
+    photoshop.invoke('PSFakeDOM.getDocumentNode', function(error, document){
+      if (error) return console.warn(error)
+      console.log(document)
+    })
+  
+    photoshop.invoke(function(){
+      PSFakeDOM.debug=true
+      PSFakeDOM.getLayers()
+      return ['PSFakeDOM.LayerKeyBlacklist', PSFakeDOM.LayerKeyBlacklist]
+    }, function(error, document){
+      if (error) return console.warn(error)
+      console.log(document)
+    })
+  
+    photoshop.invoke('PSFakeDOM.getLayers', function(error, document){
+      if (error) return console.warn(error)
+      console.log(document)
+      photoshop.invoke('app.activeDocument.close')
+    })
+    
   })
   
-  photoshop.invoke(function(){
-    PSFakeDOM.debug=true
-    PSFakeDOM.getLayers()
-    return ['PSFakeDOM.LayerKeyBlacklist', PSFakeDOM.LayerKeyBlacklist]
-  }, function(error, document){
-    if (error) return console.warn(error)
-    console.log(document)
-  })
-  
-  photoshop.invoke('PSFakeDOM.getLayers', function(error, document){
-    if (error) return console.warn(error)
-    console.log(document)
-  })
 }
