@@ -18,7 +18,7 @@ t.test('stream write', function(t){
 
 t.test('stream write multiple', function(t){
   
-  var createScraper = require('json-scrape')
+  var createScraper = require('JSONStream').parse
   
   var stream = createScraper()
   
@@ -43,7 +43,7 @@ t.test('stream write multiple', function(t){
 
 t.test('stream write single dual', function(t){
   
-  var createScraper = require('json-scrape')
+  var createScraper = require('JSONStream').parse
   
   var stream = createScraper()
   
@@ -67,7 +67,7 @@ t.test('stream write single dual', function(t){
 
 t.test('stream write multiple args', function(t){
   
-  var createScraper = require('json-scrape')
+  var createScraper = require('JSONStream').parse
   
   var stream = createScraper()
   
@@ -93,7 +93,7 @@ t.test('stream write multiple args', function(t){
 
 t.test('stream write single dual', function(t){
   
-  var createScraper = require('json-scrape')
+  var createScraper = require('JSONStream').parse
   
   var stream = createScraper()
   
