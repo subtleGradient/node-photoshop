@@ -110,13 +110,39 @@ photoshop.invoke = function(fn, args, callback){
   })
 }
 
-photoshop.createStream = require('./lib/photoshop-stream').psStream
+var psStream = require('./lib/photoshop-stream').psStream
+
+photoshop.createStream = function(jsx, args){
+  jsx.__jsx_prefix__ = jsx_header()
+  return psStream(jsx, args)
+}
+
+function jsx_header(){
+  var script = PSLIB_SCRIPT + '\n' + TMP_IMPORT_PATHS.map(pathToImport).join('\n') + '\n'
+  TMP_IMPORT_PATHS.length = 0
+  return script
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
 if (module.id == '.') {
   
   photoshop.debug = true
+  
+  photoshop.createStream(function(stream, psd){
+    app.open(File(psd))
+    
+    PSFakeDOM.getLayersArray().forEach(function(layer){
+      stream.writeln(JSON.stringify(layer.layerID))
+      // $.sleep(100)
+    })
+    
+  }, [__dirname + '/test/stuff/some stuff.psd'])
+  
+  .pipe(process.stdout)
+  
+  return
   
   photoshop.run('1+1', function(err, out){
     console.log('Test', err, out)
@@ -143,11 +169,13 @@ if (module.id == '.') {
       if (error) return console.warn(error)
       console.log(document)
     })
-  
+    
     photoshop.invoke('PSFakeDOM.getLayers', function(error, document){
       if (error) return console.warn(error)
       console.log(document)
-      photoshop.invoke('app.activeDocument.close')
+      setTimeout(function(){
+        photoshop.invoke('app.activeDocument.close')
+      }, 100);
     })
     
   })
