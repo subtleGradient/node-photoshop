@@ -103,10 +103,17 @@ photoshop.invoke = function(fn, args, callback){
     args = []
   }
   if (!Array.isArray(args)) args = [args]
-  photoshop.run(';try{JSON.stringify(' + fn + '(' + JSON.stringify(args).replace(/^\[|\]$/g,'') + '))}catch(e){JSON.stringify(e)};', function(err, out, error){
+  photoshop.run(';try{JSON.stringify({"node-photoshop-result":' + fn + '(' + JSON.stringify(args).replace(/^\[|\]$/g,'') + ')})}catch(e){JSON.stringify({"node-photoshop-error":e})};', function(err, out, error){
     if (err) return callback(err, error || out)
     try { out = JSON.parse(out) }catch(e){}
-    callback && callback(null, out)
+    var psError = out["node-photoshop-error"]
+    if (psError){
+      if (psError.fileName) {
+        psError.fileName = decodeURIComponent(psError.fileName).replace(/^\~/, process.env.HOME);
+        delete psError.source
+      }
+    }
+    callback && callback(psError, out["node-photoshop-result"])
   })
 }
 
