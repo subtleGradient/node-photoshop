@@ -97,6 +97,15 @@ photoshop.include = function(paths){
   return this
 }
 
+var _fakeDOMIncludes = [
+  __dirname + '/lib/ExtendScript/FakeDocument.jsxinc',
+  __dirname + '/lib/ExtendScript/FakeLayer.jsxinc',
+]
+
+photoshop.includeFakeDOM = function(){
+  return photoshop.include(_fakeDOMIncludes)
+}
+
 photoshop.invoke = function(fn, args, callback){
   if (arguments.length == 2){
     callback = args

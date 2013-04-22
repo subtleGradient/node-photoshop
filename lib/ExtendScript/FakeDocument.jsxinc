@@ -1,0 +1,684 @@
+/*jshint asi:true*/
+////////////////////////////////////////////////////////////////////////////////
+
+FakeDocument.getDocumentWithLayerCompAsJSON = function(psdPath, layerCompName, path){
+  var doc = FakeDocument.getByPath(psdPath)
+  // $.hiresTimer
+  doc.doTransaction(function(){
+    doc.layers = doc.getLayersForLayerCompNamed(layerCompName)
+  })
+  doc.layers.forEach(function(layer){
+    layer.layerCompName = layerCompName
+    layer.psdPath = psdPath
+  })
+  // $.writeln("calculateLayerStates " + Math.round($.hiresTimer / doc.layers.length)/1000 + 'ms each')
+  return new SerializeFakeDocument(doc).exportJSON(path)
+}
+FakeDocument.getDocumentWithLayerCompAsJSONAndExportPNGs = function(psdPath, layerCompName, path){
+  var doc = FakeDocument.getByPath(psdPath)
+  // $.hiresTimer
+  var imagePath = doc.getFilePath() + '.' + layerCompName + '.png'
+  var backgroundImagePath = doc.getFilePath() + '.' + layerCompName + '.Background.png'
+  
+  doc.doTransaction(function(){
+    doc.layers = doc.getLayersForLayerCompNamed(layerCompName)
+    var pngLayers = doc.findByNameWithRegEx(FakeLayer.layerNamePattern.crop)
+    
+    // Save image
+    savePNG(imagePath)
+    doc.imagePath = imagePath
+    
+    // Save layer images
+    pngLayers.forEach(function(layer){layer.saveCroppedPNG(layer)})
+    
+    // Save background image
+    pngLayers.forEach(function(layer){layer.hide()})
+    savePNG(backgroundImagePath)
+    doc.backgroundImagePath = backgroundImagePath
+  })
+  // $.writeln("calculateLayerStates " + Math.round($.hiresTimer / doc.layers.length)/1000 + 'ms each')
+  return new SerializeFakeDocument(doc).exportJSON(path)
+}
+
+FakeDocument.resizeBounds = function(bounds, width, height){
+  var newBounds = {width:width, height:height}
+  if (bounds.width == null) bounds.width = bounds.right - bounds.left
+  if (bounds.height == null) bounds.height = bounds.bottom - bounds.top
+  newBounds.top = Math.floor((newBounds.height - bounds.height) / -2)
+  newBounds.top += bounds.top
+  newBounds.left = Math.floor((newBounds.width - bounds.width) / -2)
+  newBounds.left += bounds.left
+  newBounds.bottom = newBounds.top + newBounds.height
+  newBounds.right = newBounds.left + newBounds.width
+  return newBounds
+}
+
+function sortNumber(a,b){return a-b}
+
+FakeDocument.getByPath = function FakeDocument_getByPath(path){
+  if (FakeDocument_getByPath[path]) return FakeDocument_getByPath[path]
+  path = new File(path)
+  if (!path.exists) throw Error("doesn't exist: '" + path + "'");
+  
+  var idOpn = charIDToTypeID("Opn ")
+  var idnull = charIDToTypeID("null")
+  var desc = new ActionDescriptor()
+  desc.putPath(idnull, path)
+  executeAction(idOpn, desc, DialogModes.NO)
+  
+  return FakeDocument_getByPath[path.fullName] = new FakeDocument(activeDocument)
+}
+
+FakeDocument.$0 = function(){
+  return new FakeDocument(app.activeDocument)
+}
+
+FakeDocument.create = function newDocument(config){
+  if (config == null) config = {}
+  var idMk = charIDToTypeID( "Mk  " );
+      var desc1 = new ActionDescriptor();
+      var idNw = charIDToTypeID( "Nw  " );
+          var desc2 = new ActionDescriptor();
+          var idMd = charIDToTypeID( "Md  " );
+          var idRGBM = charIDToTypeID( "RGBM" );
+          desc2.putClass( idMd, idRGBM );
+          var idWdth = charIDToTypeID( "Wdth" );
+          var idRlt = charIDToTypeID( "#Rlt" );
+          desc2.putUnitDouble( idWdth, idRlt, config.width || 512 );
+          var idHght = charIDToTypeID( "Hght" );
+          var idRlt = charIDToTypeID( "#Rlt" );
+          desc2.putUnitDouble( idHght, idRlt, config.height || 512 );
+          var idRslt = charIDToTypeID( "Rslt" );
+          var idRsl = charIDToTypeID( "#Rsl" );
+          desc2.putUnitDouble( idRslt, idRsl, config.ppi || 72 );
+          var idpixelScaleFactor = stringIDToTypeID( "pixelScaleFactor" );
+          desc2.putDouble( idpixelScaleFactor, 1 );
+          var idFl = charIDToTypeID( "Fl  " );
+          var idFl = charIDToTypeID( "Fl  " );
+          var idWht = charIDToTypeID( "Wht " );
+          desc2.putEnumerated( idFl, idFl, idWht );
+          var idDpth = charIDToTypeID( "Dpth" );
+          desc2.putInteger( idDpth, 8 );
+          var idprofile = stringIDToTypeID( "profile" );
+          desc2.putString( idprofile, config.profile || "sRGB IEC61966-2.1" );
+      var idDcmn = charIDToTypeID( "Dcmn" );
+      desc1.putObject( idNw, idDcmn, desc2 );
+  executeAction( idMk, desc1, DialogModes.NO );
+  return new FakeDocument(app.activeDocument)
+}
+
+function FakeDocument(document){
+  if (!(this instanceof FakeDocument)) throw Error("must be called with `new`")
+  if (!(document instanceof Document)) throw Error("must be called with a real document. e.g. `new FakeDocument(app.activeDocument)`")
+  this.getRealDocument = function FakeDocument$getRealDocument_cached(){return document}
+}
+
+FakeDocument.prototype = { constructor: FakeDocument,
+  
+  getRealDocument: function FakeDocument$getRealDocument(){throw Error("Real document is missing")},
+  
+  activate: function FakeDocument$activate(){
+    // Perf hack to keep from calling makeActive a million times
+    // if (this._shouldbeActiveUnlessSomethingWackyHappened) return;
+    // this._shouldbeActiveUnlessSomethingWackyHappened = makeActive(this.getRealDocument())
+  },
+  
+  getLayerCount: function FakeDocument$getLayerCount(){
+    return PSFakeDOM.getLayerCount()
+  },
+  getFakeLayers: function FakeDocument$getFakeLayers(){
+    if (this.layers) return this.layers
+    
+    var layerCount = this.getLayerCount()
+    var layers = this.layers = Array(layerCount)
+    layers[-1] = this
+    
+    var index = layerCount
+    while (index--) {
+      layers[index] = FakeLayer.getLayerForDocumentByIndex(this, index)
+    }
+    return (this.layers = layers)
+  },
+  getLayerById: function(id){
+    var layers = this.getFakeLayers()
+    for (var index = layers.length; --index >= 0;){
+      if (layers[index].getID() == id) return layers[index]
+    }
+    return null
+  },
+  
+  getChildren: function FakeDocument$getChildren(){
+    var layers = this.getFakeLayers()
+    return this.childIndexes.sort(sortNumber).map(function(index){
+      return layers[index]
+    })
+  },
+  
+  getFolderPath: function FakeDocument$getFolderPath() {
+    try {
+      return decodeURIComponent(this.getRealDocument().fullName.path)
+    } catch(e){
+      return "~/tmp"
+    }
+  },
+  getFilePath: function FakeDocument$getFilePath(){ return this.getFolderPath() + "/" + this.getName() },
+  getName: function FakeDocument$getName(){ return decodeURIComponent(this.getRealDocument().name) },
+  
+  getWidth: function FakeDocument$getWidth(){return this.getRealDocument().width.as('px')},
+  getHeight: function FakeDocument$getHeight(){return this.getRealDocument().height.as('px')},
+  getBounds: function(bounds){
+    if (bounds == null) bounds = {}
+    bounds.left = 0
+    bounds.top = 0
+    bounds.right = this.getWidth()
+    bounds.bottom = this.getHeight()
+    return bounds
+  },
+  
+  trimTransparency: function FakeDocument$trimTransparency(){
+    var idtrim = stringIDToTypeID("trim")
+    var idtrimBasedOn = stringIDToTypeID("trimBasedOn")
+    var idTrns = charIDToTypeID("Trns")
+    var idTop = charIDToTypeID("Top ")
+    var idBtom = charIDToTypeID("Btom")
+    var idLeft = charIDToTypeID("Left")
+    var idRght = charIDToTypeID("Rght")
+
+    var desc4 = new ActionDescriptor
+    desc4.putEnumerated(idtrimBasedOn, idtrimBasedOn, idTrns)
+    desc4.putBoolean(idTop, true)
+    desc4.putBoolean(idBtom, true)
+    desc4.putBoolean(idLeft, true)
+    desc4.putBoolean(idRght, true)
+    executeAction(idtrim, desc4, DialogModes.NO)
+  },
+  cropToBounds: function FakeDocument$cropToBounds(top, left, bottom, right){
+    if (!(typeof top == 'number' && typeof left == 'number' && typeof bottom == 'number' && typeof right == 'number')) throw Error("top, left, bottom, right must be numbers")
+    
+        var idCrop = charIDToTypeID( "Crop" );
+                var idT = charIDToTypeID( "T   " );
+                    var idTop = charIDToTypeID( "Top " );
+                    var idPxl = charIDToTypeID( "#Pxl" );
+                    var idLeft = charIDToTypeID( "Left" );
+                    var idBtom = charIDToTypeID( "Btom" );
+                    var idRght = charIDToTypeID( "Rght" );
+                var idRctn = charIDToTypeID( "Rctn" );
+                var idAngl = charIDToTypeID( "Angl" );
+                var idAng = charIDToTypeID( "#Ang" );
+                var idDlt = charIDToTypeID( "Dlt " );
+                var idcropAspectRatioModeKey = stringIDToTypeID( "cropAspectRatioModeKey" );
+                var idcropAspectRatioModeClass = stringIDToTypeID( "cropAspectRatioModeClass" );
+                var idunconstrained = stringIDToTypeID( "unconstrained" );
+
+        var desc18 = new ActionDescriptor();
+            var desc19 = new ActionDescriptor();
+            desc19.putUnitDouble( idTop, idPxl, Number(top) );
+            desc19.putUnitDouble( idLeft, idPxl, Number(left) );
+            desc19.putUnitDouble( idBtom, idPxl, Number(bottom) );
+            desc19.putUnitDouble( idRght, idPxl, Number(right) );
+        desc18.putObject( idT, idRctn, desc19 );
+        desc18.putUnitDouble( idAngl, idAng, 0 );
+        desc18.putBoolean( idDlt, true );
+        desc18.putEnumerated( idcropAspectRatioModeKey, idcropAspectRatioModeClass, idunconstrained );
+    executeAction( idCrop, desc18, DialogModes.NO );
+  },
+  
+  undoOne: function FakeDocument$undoOne(){
+    var idslct = charIDToTypeID( "slct" );
+        var desc5 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+            var ref2 = new ActionReference();
+            var idHstS = charIDToTypeID( "HstS" );
+            var idOrdn = charIDToTypeID( "Ordn" );
+            var idPrvs = charIDToTypeID( "Prvs" );
+            ref2.putEnumerated( idHstS, idOrdn, idPrvs );
+        desc5.putReference( idnull, ref2 );
+    executeAction( idslct, desc5, DialogModes.NO );
+  },
+  
+  undo: function FakeDocument$undo(){
+    executeAction(charIDToTypeID("undo"), undefined, DialogModes.NO)
+  },
+  
+  _exitQuickMaskMode: function FakeDocument$_exitQuickMaskMode(){
+    // Get out of Quick Mask mode
+    var idCler = charIDToTypeID( "Cler" );
+        var desc174 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+            var ref145 = new ActionReference();
+            var idPrpr = charIDToTypeID( "Prpr" );
+            var idQucM = charIDToTypeID( "QucM" );
+            ref145.putProperty( idPrpr, idQucM );
+            var idDcmn = charIDToTypeID( "Dcmn" );
+            var idOrdn = charIDToTypeID( "Ordn" );
+            var idTrgt = charIDToTypeID( "Trgt" );
+            ref145.putEnumerated( idDcmn, idOrdn, idTrgt );
+        desc174.putReference( idnull, ref145 );
+    executeAction( idCler, desc174, DialogModes.NO );
+  },
+  
+  toggleShowOnly: function FakeLayer$toggleShowOnly(layer){
+    this._exitQuickMaskMode()
+    var idToggleOthers = charIDToTypeID("TglO")
+    var idShow = charIDToTypeID("Shw ")
+    var idnull = charIDToTypeID("null")
+    
+    var refsList = new ActionList
+    refsList.putReference(layer.getActionReference())
+    
+    var refsDesc = new ActionDescriptor
+    refsDesc.putList(idnull, refsList)
+    refsDesc.putBoolean(idToggleOthers, true)
+    executeAction(idShow, refsDesc, DialogModes.NO)
+  },
+
+
+////////////////////////////////////////////////////////////////////////////////
+// loop over the layers again
+
+  findByNameWithRegEx: function FakeDocument$findByNameWithRegEx(regex){
+    if (!(regex && typeof regex.test == 'function')) throw Error("Expected regex")
+    return this.getFakeLayers().filter(function(layer){
+      if (!layer) return false;
+      if (layer.isGroupEnd) return false;
+      return layer.name && regex.test(layer.name.toString())
+    })
+  },
+
+
+////////////////////////////////////////////////////////////////////////////////
+// States
+  
+  rasterizeAll: function(){
+    this.activate()
+    executeAction(stringIDToTypeID("rasterizeAll"), undefined, DialogModes.NO)
+  },
+  
+  getLayersForLayerCompNamed: function(layerCompName){
+    if (!layerCompName) layerCompName = this.getActiveLayerCompName()
+    if (!this._layersForLayerComp) this._layersForLayerComp = {}
+    var layers
+    if (layers = this._layersForLayerComp[layerCompName]) return layers;
+    delete this.layers
+    
+    var docWidth = this.getWidth()
+    var docHeight = this.getHeight()
+    
+    this.applyLayerCompNamed(layerCompName)
+    layers = this._layersForLayerComp[layerCompName] = this.getFakeLayers().slice().reverse()
+    
+    layers.forEach(function(layer){
+      layer.getState(layer)
+    })
+    layers.forEach(function(layer){
+      var state = layer
+      state.width = state.right - state.left
+      state.height = state.bottom - state.top
+      state.x = state.left - docWidth/2 + state.width/2
+      state.y = -(state.top - docHeight/2 + state.height/2)
+    })
+    layers.reverse()
+    return layers
+  },
+  
+  calculateLayerStates: function(){
+    this.calculateLayerStates = function(){return layers}
+    var doc = this
+    var layers = doc.getFakeLayers().slice().reverse()
+    doc.getLayerCompNames().forEach(function(layerCompName){
+      doc.applyLayerCompNamed(layerCompName)
+      layers.forEach(function(layer){
+        layer.getStateForKey(layerCompName)
+      })
+      layers.forEach(function(layer){
+        var state = layer.getStateForKey(layerCompName)
+        state.width = state.right - state.left
+        state.height = state.bottom - state.top
+        state.x = state.left + state.width / 2
+        state.y = state.top + state.height / 2
+      })
+    })
+    layers.reverse()
+    return layers
+  },
+  
+  getActiveLayerCompName: function FakeDocument$getActiveLayerCompName(){
+    if (this.activeLayerCompName) return this.activeLayerCompName
+    return "Current State"
+  },
+
+  getLayerCompNames: function FakeDocument$getLayerCompNames(){
+    var layerCompNames = [this.getActiveLayerCompName()]
+    var layerComps = this.getRealDocument().layerComps
+    for (var index = layerComps.length, layerComp; --index >= 0 && (layerComp = layerComps[index]);){
+      layerCompNames.push(layerComp.name)
+    }
+    return layerCompNames
+  },
+
+  applyLayerCompNamed: function FakeDocument$applyLayerCompNamed(layerCompName) {
+    if (!layerCompName) return;
+    var idcompsClass = stringIDToTypeID("compsClass")
+    var idnull = charIDToTypeID("null")
+    var idapplyComp = stringIDToTypeID("applyComp")
+  
+    var ref = new ActionReference
+    ref.putName(idcompsClass, layerCompName)
+  
+    var desc = new ActionDescriptor
+    desc.putReference(idnull, ref)
+    try{
+        executeAction(idapplyComp, desc, DialogModes.NO)
+    }catch(e){return false}
+    
+    var success = this.getRealDocument().layerComps.getByName(layerCompName).selected
+    if (success) this.activeLayerCompName = layerCompName
+    return success
+  },
+
+  setFrame: function FakeDocument$setFrame(frame){
+    var idslct = charIDToTypeID("slct")
+    var idnull = charIDToTypeID("null")
+    var idanimationFrameClass = stringIDToTypeID("animationFrameClass")
+    
+    var ref = new ActionReference
+    ref.putIndex(idanimationFrameClass, frame)
+    
+    var desc = new ActionDescriptor
+    desc.putReference(idnull, ref)
+    executeAction(idslct, desc, DialogModes.NO)
+  },
+
+  getFakeLayerStates: function FakeDocument$getFakeLayerStates(){
+    return this.getFakeLayers().map(function(layer){
+      if (!layer) return null
+      return layer.getState({index:layer.getIndex()})
+    })
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+
+  scaleLayersAndStyles: function(scale) {
+    var idImgS = charIDToTypeID("ImgS");
+    var desc = new ActionDescriptor();
+    var idWdth = charIDToTypeID("Wdth"); var idPrc = charIDToTypeID("#Prc"); desc.putUnitDouble(idWdth, idPrc, scale * 100);
+    var idscaleStyles = stringIDToTypeID("scaleStyles"); desc.putBoolean(idscaleStyles, true);
+    var idCnsP = charIDToTypeID("CnsP"); desc.putBoolean(idCnsP, true);
+    var idIntr = charIDToTypeID("Intr"); var idIntp = charIDToTypeID("Intp"); var idbicubicAutomatic = stringIDToTypeID("bicubicAutomatic"); desc.putEnumerated(idIntr, idIntp, idbicubicAutomatic);
+    executeAction(idImgS, desc, DialogModes.NO);
+  },
+
+  scaleLayers: function(scale) {
+    var idImgS = charIDToTypeID("ImgS");
+    var desc = new ActionDescriptor();
+    var idWdth = charIDToTypeID("Wdth"); var idPrc = charIDToTypeID("#Prc"); desc.putUnitDouble(idWdth, idPrc, scale * 100);
+    var idscaleStyles = stringIDToTypeID("scaleStyles"); desc.putBoolean(idscaleStyles, false);
+    var idCnsP = charIDToTypeID("CnsP"); desc.putBoolean(idCnsP, true);
+    var idIntr = charIDToTypeID("Intr"); var idIntp = charIDToTypeID("Intp"); var idbicubicAutomatic = stringIDToTypeID("bicubicAutomatic"); desc.putEnumerated(idIntr, idIntp, idbicubicAutomatic);
+    executeAction(idImgS, desc, DialogModes.NO);
+  },
+
+  cropTo: function(state){
+    if (!(state && typeof state == 'object')) throw Error('expected an object')
+    if (state.getState) state = state.getState();
+    if (!("top" in state && "left" in state && "bottom" in state && "right" in state)) throw Error('invalid rectangle')
+    
+    this.cropToBounds(+state.top, +state.left, +state.bottom, +state.right)
+    return state
+  },
+
+  setCanvasSize: function(width, height){
+    this.cropTo(FakeDocument.resizeBounds(this.getBounds(), width, height))
+  },
+
+  pad: function(padding){
+    if (typeof padding != 'object') {
+      padding = Number(padding)
+      padding = {top:padding, right:padding, bottom:padding, left:padding}
+    }
+    if (isNaN(padding.bottom) || isNaN(padding.right) || isNaN(padding.top) || isNaN(padding.left)) throw Error('NaN!')
+    if (padding.bottom == 0 && padding.right == 0 && padding.top == 0 && padding.left == 0) return
+    
+    function canvasSize(config){
+      executeAction(stringIDToTypeID("canvasSize"), (function(config){
+      	var descriptor = new ActionDescriptor;
+      	if ("relative" in config)	descriptor.putBoolean(stringIDToTypeID("relative"), config["relative"]);
+      	if ("width" in config)	descriptor.putUnitDouble(stringIDToTypeID("width"), stringIDToTypeID("pixelsUnit"), config["width"]);
+      	if ("height" in config)	descriptor.putUnitDouble(stringIDToTypeID("height"), stringIDToTypeID("pixelsUnit"), config["height"]);
+      	if ("horizontal" in config)	descriptor.putEnumerated(stringIDToTypeID("horizontal"), stringIDToTypeID("horizontalLocation"), stringIDToTypeID(config["horizontal"]));
+      	if ("vertical" in config)	descriptor.putEnumerated(stringIDToTypeID("vertical"), stringIDToTypeID("verticalLocation"), stringIDToTypeID(config["vertical"]));
+      	return descriptor
+      })(config), DialogModes.NO);
+    }
+    canvasSize({
+      "relative":  true,
+      "width":  padding.left,
+      "height":  padding.top,
+      "horizontal":  "right",
+      "vertical":  "bottomEnum"
+    })
+    canvasSize({
+      "relative":	true,
+      "width":	padding.right,
+      "height":	padding.bottom,
+      "horizontal":	"left",
+      "vertical":	"top"
+    })
+  },
+
+  setSize: function(width, height, scaleStyles){
+    if (height == null) height = width
+    executeAction(stringIDToTypeID("imageSize"), (function(config){
+    	var descriptor = new ActionDescriptor;
+    	if ("width" in config)	descriptor.putUnitDouble(stringIDToTypeID("width"), stringIDToTypeID("pixelsUnit"), config["width"]);
+    	if ("height" in config)	descriptor.putUnitDouble(stringIDToTypeID("height"), stringIDToTypeID("pixelsUnit"), config["height"]);
+    	if ("scaleStyles" in config)	descriptor.putBoolean(stringIDToTypeID("scaleStyles"), config["scaleStyles"]);
+    	if ("constrainProportions" in config)	descriptor.putBoolean(stringIDToTypeID("constrainProportions"), config["constrainProportions"]);
+    	if ("interfaceIconFrameDimmed" in config)	descriptor.putEnumerated(stringIDToTypeID("interfaceIconFrameDimmed"), stringIDToTypeID("interpolationType"), stringIDToTypeID(config["interfaceIconFrameDimmed"]));
+    	return descriptor
+    })({
+    	"width":	width,
+    	"height":	height,
+    	"scaleStyles":	!!scaleStyles,
+    	"constrainProportions":	width === height,
+    	"interfaceIconFrameDimmed":	"bicubicAutomatic"
+    }), DialogModes.NO);
+  },
+
+  exportToIllustrator: function(path){
+    path = new File(path || (this.getFilePath().replace(/\.ps[db]$/i,'') + '.ai'))
+    if (!path.parent.exists) path.parent.create()
+    
+    var idExpr = charIDToTypeID( "Expr" );
+        var desc459 = new ActionDescriptor();
+        var idUsng = charIDToTypeID( "Usng" );
+            var desc460 = new ActionDescriptor();
+            var idIn = charIDToTypeID( "In  " );
+            desc460.putPath( idIn, path);
+            var idPthS = charIDToTypeID( "PthS" );
+            var idPtSl = charIDToTypeID( "PtSl" );
+            var idAllP = charIDToTypeID( "AllP" );
+            desc460.putEnumerated( idPthS, idPtSl, idAllP );
+        desc459.putObject( idUsng, stringIDToTypeID( "Illustrator Export.  This string makes me unique!" ), desc460 );
+    executeAction( idExpr, desc459, DialogModes.NO );
+  },
+
+  exportToPDF: function(path){
+    path = new File(path || (this.getFilePath().replace(/\.ps[db]$/i,'') + '.pdf'))
+    if (!path.parent.exists) path.parent.create()
+    
+    var idsave = charIDToTypeID( "save" );
+        var desc461 = new ActionDescriptor();
+        var idAs = charIDToTypeID( "As  " );
+            var desc462 = new ActionDescriptor();
+            var idpdfPresetFilename = stringIDToTypeID( "pdfPresetFilename" );
+            desc462.putString( idpdfPresetFilename, "Smallest File Size" );
+            var idpdfCompressionType = stringIDToTypeID( "pdfCompressionType" );
+            desc462.putInteger( idpdfCompressionType, 10 );
+        var idPhtP = charIDToTypeID( "PhtP" );
+        desc461.putObject( idAs, idPhtP, desc462 );
+        var idIn = charIDToTypeID( "In  " );
+        desc461.putPath( idIn, path);
+        var idDocI = charIDToTypeID( "DocI" );
+        desc461.putInteger( idDocI, 13984 );
+        var idCpy = charIDToTypeID( "Cpy " );
+        desc461.putBoolean( idCpy, true );
+        var idLwCs = charIDToTypeID( "LwCs" );
+        desc461.putBoolean( idLwCs, true );
+        var idLyrs = charIDToTypeID( "Lyrs" );
+        desc461.putBoolean( idLyrs, false );
+        var idsaveStage = stringIDToTypeID( "saveStage" );
+        var idsaveStageType = stringIDToTypeID( "saveStageType" );
+        var idsaveBegin = stringIDToTypeID( "saveBegin" );
+        desc461.putEnumerated( idsaveStage, idsaveStageType, idsaveBegin );
+    executeAction( idsave, desc461, DialogModes.NO );
+  },
+
+  exportToPNG: (function() {
+    var asPNG = save2({ "PNGInterlaceType": "PNGInterlaceNone", "PNGFilter": "PNGFilterAdaptive", "compression": 9 })
+    return function(path) {
+      path = new File(path || (this.getFilePath().replace(/\.ps[db]$/i, '') + '.png'))
+      if (!path.parent.exists) path.parent.create();
+      
+      executeAction(stringIDToTypeID("save"), save1({
+        "as": asPNG,
+        "in": path,
+        "documentID": this.getRealDocument().id,
+        "copy": true,
+        "lowerCase": true,
+        "saveStage": "saveBegin"
+      }), DialogModes.NO);
+    }
+    function save1(config) {
+      var descriptor = new ActionDescriptor;
+      if ("as" in config) descriptor.putObject(stringIDToTypeID("as"), stringIDToTypeID("PNGFormat"), config["as"]);
+      if ("in" in config) descriptor.putPath(stringIDToTypeID("in"), config["in"]);
+      if ("documentID" in config) descriptor.putInteger(stringIDToTypeID("documentID"), config["documentID"]);
+      if ("copy" in config) descriptor.putBoolean(stringIDToTypeID("copy"), config["copy"]);
+      if ("lowerCase" in config) descriptor.putBoolean(stringIDToTypeID("lowerCase"), config["lowerCase"]);
+      if ("saveStage" in config) descriptor.putEnumerated(stringIDToTypeID("saveStage"), stringIDToTypeID("saveStageType"), stringIDToTypeID(config["saveStage"]));
+      return descriptor
+    }
+    function save2(config) {
+      var descriptor = new ActionDescriptor;
+      if ("PNGInterlaceType" in config) descriptor.putEnumerated(stringIDToTypeID("PNGInterlaceType"), stringIDToTypeID("PNGInterlaceType"), stringIDToTypeID(config["PNGInterlaceType"]));
+      if ("PNGFilter" in config) descriptor.putEnumerated(stringIDToTypeID("PNGFilter"), stringIDToTypeID("PNGFilter"), stringIDToTypeID(config["PNGFilter"]));
+      if ("compression" in config) descriptor.putInteger(stringIDToTypeID("compression"), config["compression"]);
+      return descriptor
+    }
+  }()),
+
+  getExportableLayers: function(){
+    return this.findByNameWithRegEx(/\.(?:png|psd|pdf)$/)
+    .map(function(layer){return layer.getLayerWithContent()})
+    .filter(function uniq(item, index, items){ return items.indexOf(item) === index })
+  },
+
+  getMetaLayers: function(){
+    return this.findByNameWithRegEx(/^@/)
+  },
+
+  exportResources: function(root){
+    var doc = this
+    if (root == null) root = doc.getFolderPath() + '/' + doc.getName().replace(/\.ps[db]$/, ' Resources')
+    var root = new Folder(root)
+    if (!root.exists) root.create();
+    
+    var layers = doc.getExportableLayers()
+    var slices = {}
+    
+    doc.doThenUndo(function(doc){
+      doc.rasterizeAll()
+      layers.forEach(function(layer){ slices[layer.id] = layer.getSlices() })
+    })
+    
+    var resourcePaths = []
+    layers
+    .filter(function(layer){return layer.id in slices && slices[layer.id].length > 0})
+    .map(function(layer){
+      layer.doWhileThisIsTheOnlyThingVisible(function(){
+        slices[layer.id].forEach(function(slice){
+          var path = root + '/' + (slice.name || layer.name)
+          doc.doThenUndo(function(){
+            doc.cropTo(slice)
+            doc.exportToPNG(path)
+          })
+          resourcePaths.push(path)
+        }) // slice
+      }) // layer.doWhileThisIsTheOnlyThingVisible
+    })
+    return resourcePaths
+  },
+
+  mergeVisible: function(){
+    executeAction(stringIDToTypeID("make"),(function(config){var descriptor=new ActionDescriptor;if("null"in config)descriptor.putReference(stringIDToTypeID("null"),config["null"]);return descriptor})({"null":(function(config){var ref=new ActionReference;if(0 in config)ref.putClass(config[0]);return ref})([stringIDToTypeID("layer")])}),DialogModes.NO);
+    executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+// History
+
+  close: function(){
+    // try{
+      this.activate()
+    // }catch(e){return}
+    var idCls = charIDToTypeID( "Cls " );
+        var desc = new ActionDescriptor();
+        var idSvng = charIDToTypeID( "Svng" );
+        var idYsN = charIDToTypeID( "YsN " );
+        var idN = charIDToTypeID( "N   " );
+        desc.putEnumerated( idSvng, idYsN, idN );
+    executeAction( idCls, desc, DialogModes.NO );
+  },
+
+  save: function(path){
+    if (path == null) path = this.getFilePath()
+    path = new File(path)
+    
+    var idsave = charIDToTypeID( "save" );
+        var desc458 = new ActionDescriptor();
+        var idIn = charIDToTypeID( "In  " );
+        desc458.putPath( idIn, path);
+        var idsaveStage = stringIDToTypeID( "saveStage" );
+        var idsaveStageType = stringIDToTypeID( "saveStageType" );
+        var idsaveBegin = stringIDToTypeID( "saveBegin" );
+        desc458.putEnumerated( idsaveStage, idsaveStageType, idsaveBegin );
+        var idDocI = charIDToTypeID( "DocI" );
+        desc458.putInteger( idDocI, 13806 );
+    executeAction( idsave, desc458, DialogModes.NO );
+  },
+
+  historyMarker: function(){
+    return this.getRealDocument().activeHistoryState
+  },
+  
+  rewindHistoryToMarker: function(activeHistoryState){
+    this.getRealDocument().activeHistoryState = activeHistoryState
+  },
+  
+  doThenUndo: function FakeDocument$doThenUndo(theThingToDo){
+    this.activate()
+    var activeHistoryState = this.getRealDocument().activeHistoryState
+    try {
+      return theThingToDo(this)
+    }
+    catch(e){throw e}
+    finally {
+      this.activate()
+      this.getRealDocument().activeHistoryState = activeHistoryState
+    }
+  },
+
+  doWriteTransaction: function FakeDocument$doTransaction(transaction, name){
+    var result
+    this.getRealDocument().suspendHistory(name || "FakeDocument Transaction", "result = transaction(this)")
+    return result
+  },
+
+  doTransaction: function FakeDocument$doTransaction(transaction, name){
+    var result = this.doWriteTransaction(transaction, name || "temporary FakeDocument Transaction")
+    this.undo()
+    return result
+  },
+
+}

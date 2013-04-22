@@ -1,0 +1,702 @@
+/*jshint asi:true*/
+////////////////////////////////////////////////////////////////////////////////
+
+FakeLayer.$0 = function(){
+  return FakeLayer.getActiveLayerForDocument(FakeDocument.$0())
+}
+
+FakeLayer.getPathToLayerPNG = function(psdPath, layerCompName, id, state){
+  var doc = FakeDocument.getByPath(psdPath)
+  var layer
+  doc.doTransaction(function(){
+    doc.applyLayerCompNamed(layerCompName)
+    layer = doc.getFakeLayers().filter(function(layer){return layer.id == id})[0]
+    if (!layer) return;
+    layer.saveCroppedPNG(state)
+  })
+  if (!layer) return;
+  for (var property in state) {
+    layer[property] = state[property]
+  }
+  return layer.path
+}
+
+FakeLayer.layerNamePattern = {
+  crop:/\.png$/i
+}
+
+FakeLayer.getActiveLayerActionReference = function(){
+  var ref = new ActionReference
+  var idLyr = charIDToTypeID("Lyr ")
+  var idOrdn = charIDToTypeID("Ordn")
+  var idTrgt = charIDToTypeID("Trgt")
+  ref.putEnumerated(idLyr, idOrdn, idTrgt)
+  return ref
+}
+
+FakeLayer.getActiveLayerForDocument = function FakeLayer_getActiveLayerForDocument(document) {
+  var layer = new FakeLayer(document)
+  layer.getActionReference = FakeLayer.getActiveLayerActionReference
+  layer.getID()
+  layer.getIndex()
+  layer.getName()
+  delete layer.getActionReference
+  return layer.initialize();
+}
+FakeLayer.getLayerForDocumentByName = function FakeLayer_getLayerForDocumentByName(document, name){ var layer = new FakeLayer(document); layer.name = name; return layer.initialize(); }
+FakeLayer.getLayerForDocumentByID = function FakeLayer_getLayerForDocumentByID(document, id){ var layer = new FakeLayer(document); layer.id = id; return layer.initialize(); }
+FakeLayer.getLayerForDocumentByIndex = function FakeLayer_getLayerForDocumentByIndex(document, index){ var layer = new FakeLayer(document); layer.index = index; return layer.initialize(); }
+
+FakeLayer.MAX_OPACITY = 0xFF
+
+FakeLayer.from = function FakeLayer_from(document, object){
+  if (object instanceof FakeLayer) return object
+  var layer = new FakeLayer(document)
+  for (var property in object) {
+    if (property in FakeLayer.prototype) throw Error("Can't clobber prototype property: '" + property + "'")
+    layer[property] = object[property]
+  }
+  return layer
+}
+
+function FakeLayer(document){
+  if (!(this instanceof FakeLayer)) throw Error('must be called with `new`');
+  if (!(document instanceof FakeDocument)) throw Error('must be called with a FakeDocument');
+  
+  this.getFakeDocument = function FakeLayer$cached_getFakeDocument(){return document}
+}
+
+FakeLayer.prototype = { constructor: FakeLayer,
+
+  getActionReference: function FakeLayer$getActionReference(){
+    this.getFakeDocument().activate()
+    
+    // Cf. photoshopsdk/pluginsdk/documentation/Photoshop Actions Guide.pdf
+    var ref = new ActionReference
+    if (this.id != null) ref.putIdentifier(charIDToTypeID("Lyr "), this.id)
+    else if (this.name != null) ref.putName(charIDToTypeID("Lyr "), this.name)
+    else if (this.index != null) ref.putIndex(charIDToTypeID("Lyr "), this.index)
+    if (ref != null && this.id != null)
+      this.getActionReference = function FakeLayer$cached_getActionReference(){return ref}
+    return ref
+  },
+  getActionDescriptor: function FakeLayer$getActionDescriptor(){
+    this.getFakeDocument().activate()
+    
+    // Cf. photoshopsdk/pluginsdk/documentation/Photoshop Actions Guide.pdf
+    var ref = this.getActionReference()
+    var descriptor = null
+    try {
+      descriptor = executeActionGet(ref)
+    } catch(e){}
+    ref = null
+    if (descriptor != null)
+      this.getActionDescriptor = function FakeLayer$cached_getActionDescriptor(){return descriptor}
+    else
+      return null; //throw Error("Can't get ActionDescriptor")
+    return descriptor
+  },
+  _executeAction: function FakeLayer$_executeAction(actionCharID){
+    var idAction = charIDToTypeID(actionCharID)
+    var idnull = charIDToTypeID("null")
+    
+    var list = new ActionList
+    list.putReference(this.getActionReference())
+    
+    var desc = new ActionDescriptor
+    desc.putList(idnull, list)
+    executeAction(idAction, desc, DialogModes.NO)
+  },
+
+
+////////////////////////////////////////////////////////////////////////////////
+// initialize
+
+  initialize: function FakeLayer$initialize(){
+    // $.hiresTimer
+    if (this.getActionDescriptor() == null)
+      return null
+    // var timeCost = $.hiresTimer/1000
+    
+      // throw Error("Missing ActionDescriptor id:"+this.id + " index:"+this.index + " name:"+this.name)
+    
+    this.initialize = function(){throw Error('this method cannot be called multiple times')}
+    
+    this.getIndex()
+    this.getID()
+    
+    if (this.getType() == 'Start') this.isGroup = true
+    if (this.getType() == 'End') this.isGroupEnd = true
+    
+    this.getName()
+    this.initializeFakeDOM()
+    // this.getStateForKey('state')
+    // if (timeCost > 2){
+      // $.writeln("layer.getActionDescriptor " + timeCost)
+      // console.log(this)
+    // }
+    return this
+  },
+  
+  getStateForKey: function(stateKey){
+    if (!stateKey) stateKey = this.getFakeDocument().getActiveLayerCompName()
+    if (this[stateKey])
+      return this[stateKey]
+    
+    if (stateKey) // FIXME: Clear the ActionDescriptor cache more intelligently
+      delete this.getActionDescriptor
+    
+    if (!this.layerCompNames) this.layerCompNames = []
+    this.layerCompNames.push(stateKey)
+    var state = this[stateKey] = {}
+    
+    state.name = stateKey
+    this.calculateParentBounds(state, this.getParent()[stateKey] || (this.getParent()[stateKey] = {}))
+    state.opacity = this.getOpacity()
+    state.visible = this.isVisible()
+    return state
+  },
+
+  getState: function(state){
+    if (this.isGroupEnd) return state;
+    if (state == null) state = {}
+    if (state == this)
+      this.calculateParentBounds(state, this.getParent())
+    else
+      this.getBounds(state)
+    state.opacity = this.getOpacity()
+    state.visible = this.isVisible()
+    return state
+  },
+
+  getChildren: function FakeLayer$getChildren(){
+    if (this.childIndexes == null) return;
+    var layers = this.getFakeDocument().getFakeLayers()
+    return this.childIndexes.map(function(index){
+      return layers[index]
+    })
+  },
+
+  getParent: function(){throw Error("this is an orphaned layer. Need to initializeFakeDOM")},
+
+  initializeFakeDOM: function FakeLayer$initializeFakeDOM(){
+    this.initializeFakeDOM = function(){throw Error('this method cannot be called multiple times')}
+    
+    var document = this.getFakeDocument()
+    var parent = null, nextSibling, previousSibling, previousSiblingParent
+    
+    this.getParent = function FakeLayer$cached_getParent(){return parent}
+    this.getNextSibling = function FakeLayer$cached_getNextSibling(){return nextSibling}
+    this.getPreviousSibling = function FakeLayer$cached_getPreviousSibling(){return previousSibling}
+    
+    previousSibling = document.getFakeLayers()[this.index + 1]
+    
+    if (previousSibling) {
+      previousSibling.getNextSibling = function FakeLayer$cached_getNextSibling(){return this}
+    }
+    
+    if (previousSibling && previousSibling.isGroup) {
+      this.parentID = previousSibling.id
+      this.parentIndex = previousSibling.index
+      previousSibling = null
+    }
+    else if (previousSibling && previousSibling.isGroupEnd) {
+      previousSiblingParent = document.getFakeLayers()[previousSibling.parentIndex]
+      this.parentID = previousSiblingParent.parentID
+      this.parentIndex = previousSiblingParent.parentIndex
+    }
+    else if (previousSibling && previousSibling.parentIndex) {
+      this.parentID = previousSibling.parentID
+      this.parentIndex = previousSibling.parentIndex
+    }
+    
+    if (this.parentID || this.parentIndex) {
+      parent = document.getFakeLayers()[this.parentIndex]
+    }
+    else {
+      this.parentID = -1
+      this.parentIndex = -1
+      parent = document
+    }
+    if (parent){
+      if (parent.childIndexes == null) parent.childIndexes = []
+      if (!this.isGroupEnd)
+        parent.childIndexes.push(this.index)
+      
+      // if (this.name.charAt(0) == '@') {
+      //   parent[this.name.substr(1) + 'Index'] = this.index
+      // }
+    }
+  },
+  
+  calculateParentBounds: function FakeLayer$calculateParentBounds(state, parentState){
+    if (this.isGroupEnd) return;
+    if (parentState == null) return;
+    
+    var document = this.getFakeDocument()
+    
+    this.getBounds(state)
+    
+    if (this.name == '@bounds') this.getBounds(parentState)
+    
+    if (state.left <= 0
+      && state.top <= 0
+      && state.right >= document.getWidth()
+      && state.bottom >= document.getHeight()) {
+      
+      if (this.isGroup) {
+        state.left = Array$Math_min.mixInto([])
+        state.top = Array$Math_min.mixInto([])
+        state.right = Array$Math_max.mixInto([])
+        state.bottom = Array$Math_max.mixInto([])
+      }
+      else return;
+    }
+    
+    if (!this.isVisible()) return
+    
+    if (state.left != null && parentState.left && typeof parentState.left.push == 'function') parentState.left.push(state.left)
+    if (state.top != null && parentState.top && typeof parentState.top.push == 'function') parentState.top.push(state.top)
+    if (state.right != null && parentState.right && typeof parentState.right.push == 'function') parentState.right.push(state.right)
+    if (state.bottom != null && parentState.bottom && typeof parentState.bottom.push == 'function') parentState.bottom.push(state.bottom)
+  },
+
+  getBounds: function FakeLayer$getBounds(result){
+    if (this.isGroupEnd) return result;
+    if (result == null) result = {};
+    var bounds = this.getActionDescriptor().getObjectValue(stringIDToTypeID("bounds"))
+    result.left = bounds.getUnitDoubleValue(stringIDToTypeID('left'))
+    result.top = bounds.getUnitDoubleValue(stringIDToTypeID('top'))
+    result.right = bounds.getUnitDoubleValue(stringIDToTypeID('right'))
+    result.bottom = bounds.getUnitDoubleValue(stringIDToTypeID('bottom'))
+    return result
+  },
+
+  hasContent: function(){
+    if (this.getParent && this.getParent().hasContent && !this.getParent().hasContent()) return false
+    if (this.getName().charAt(0) == '@') return false
+    return true
+  },
+
+  getLayerWithContent: function(){
+    var layer = this
+    while (!layer.hasContent()){
+      layer = layer.getParent()
+    }
+    return layer
+  },
+
+  getSlices: function(){
+    var slices = []
+    var bounds = []
+    this.getChildren().forEach(function(layer){
+      if (layer.getName() == '@bounds') return bounds.push(layer);
+      else if (layer.getName() != '@slices') return;
+      
+      layer.getChildren().forEach(function(sliceLayer){
+        sliceLayer.getBounds(sliceLayer)
+        slices.push(sliceLayer)
+      })
+    })
+    if (bounds.length == 0 && slices.length == 0) bounds.push(this);
+    bounds.forEach(function(layer){
+      layer.getBounds(layer)
+      slices.push(layer)
+    })
+    return slices
+  },
+
+  activate: function(){
+    this.getFakeDocument().activate()
+    var args = new ActionDescriptor
+    args.putReference(charIDToTypeID("null"), this.getActionReference())
+    args.putBoolean(charIDToTypeID("MkVs"), false)
+    executeAction(charIDToTypeID("slct"), args, DialogModes.NO)
+  },
+  
+  getRealLayer: function(){
+    this.activate()
+    var realLayer = this.getFakeDocument().getRealDocument().activeLayer
+    this.getRealLayer = function(){return realLayer}
+    return realLayer
+  },
+
+  getBoundsFromDOM: function FakeLayer$getBoundsFromDOM(result){
+    if (this.isGroupEnd) return result;
+    if (result == null) result = {};
+    var bounds = this.getRealLayer().bounds
+    result.left = bounds[0].as('px')
+    result.top = bounds[1].as('px')
+    result.right = bounds[2].as('px')
+    result.bottom = bounds[3].as('px')
+    // result.width = right - result.left
+    // result.height = bottom - result.top
+    return result
+  },
+
+  getBoundsFromPixels: function(result){
+    if (result == null) result = {};
+    if (this.isGroupEnd) return result;
+    // FIXME: If it has a mask, measure the mask instead
+    
+    if (!(this.isGroup || this.hasVectorMask())) return this.getBounds(result);
+    // TODO: Rasterize vectorMask or measure the points
+    
+    var doc = this.getFakeDocument()
+    var layer = this
+    
+    layer.doWhileThisIsTheOnlyThingVisible(function(){
+      doc.doThenUndo(function(){
+        mergeVisible:{
+          selectNoLayers:{
+            var idselectNoLayers = stringIDToTypeID( "selectNoLayers" );
+                var desc253 = new ActionDescriptor();
+                var idnull = charIDToTypeID( "null" );
+                    var ref173 = new ActionReference();
+                    var idLyr = charIDToTypeID( "Lyr " );
+                    var idOrdn = charIDToTypeID( "Ordn" );
+                    var idTrgt = charIDToTypeID( "Trgt" );
+                    ref173.putEnumerated( idLyr, idOrdn, idTrgt );
+                desc253.putReference( idnull, ref173 );
+            try {
+              executeAction( idselectNoLayers, desc253, DialogModes.NO );
+            }catch(e){}
+          }
+          executeAction(charIDToTypeID("MrgV"), undefined, DialogModes.NO)
+        }
+        FakeLayer.getActiveLayerForDocument(doc).getBounds(result)
+      })
+    })
+    return result
+  },
+
+  getOpacity: function FakeLayer$getOpacity(){
+    if (this.isGroupEnd) return;
+    return this.getActionDescriptor().getDouble(charIDToTypeID('Opct'))
+  },
+
+  isVisible: function FakeLayer$isVisible(){
+    if (this.isGroupEnd) return;
+    return this.getActionDescriptor().getBoolean(charIDToTypeID('Vsbl'))
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+// initializing getters
+
+  getType: function FakeLayer$getType(){
+    var type
+    this.getType = function FakeLayer$cached_getType(){return type}
+    type = app.typeIDToStringID(
+      this.getActionDescriptor().getEnumerationValue(stringIDToTypeID("layerSection"))
+    ).replace(/^layerSection/,'')
+    
+    return type
+  },
+  
+  getIndex: function FakeLayer$getIndex(){
+    if ("index" in this) return this.index
+    try {
+      return this.index = this.getActionDescriptor().getInteger(charIDToTypeID("ItmI"))
+    }
+    catch(e){
+      return null
+    }
+  },
+  
+  getID: function FakeLayer$getID(){
+    if ("id" in this) return this.id
+    return this.id = this.getActionDescriptor().getInteger(charIDToTypeID("LyrI"))
+  },
+  
+  getName: function FakeLayer$getName(){
+    if ("name" in this) return this.name
+    if (this.isGroupEnd) return this.name = null
+    return this.name = this.getActionDescriptor().getString(charIDToTypeID("Nm  "))
+  },
+  
+  hasVectorMask: function FakeLayer$hasVectorMask(){
+    if ("_hasVectorMask" in this) return this._hasVectorMask
+    if (this.isGroupEnd) return this._hasVectorMask = null
+    return this._hasVectorMask = this.getActionDescriptor().getBoolean(stringIDToTypeID("hasVectorMask"))
+  },
+  
+  hasUserMask: function FakeLayer$hasVectorMask(){
+    if ("_hasUserMask" in this) return this._hasUserMask
+    if (this.isGroupEnd) return this._hasUserMask = null
+    return this._hasUserMask = this.getActionDescriptor().getBoolean(stringIDToTypeID("hasUserMask"))
+  },
+
+  selectVectorMaskPath: function(){
+    this.activate()
+    var idslct = charIDToTypeID( "slct" );
+        var desc1129 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+            var ref918 = new ActionReference();
+            var idPath = charIDToTypeID( "Path" );
+            var idPath = charIDToTypeID( "Path" );
+            var idvectorMask = stringIDToTypeID( "vectorMask" );
+            ref918.putEnumerated( idPath, idPath, idvectorMask );
+        desc1129.putReference( idnull, this.getActionReference() );
+    executeAction( idslct, desc1129, DialogModes.NO );
+  },
+  
+  getVectorMaskPathRef: function(){
+    this.selectVectorMaskPath()
+    return refToCurrentPath()
+  },
+  
+  getVectorMaskPath: function(){
+    return app.executeActionGet(this.getVectorMaskPathRef())
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+// getters
+  
+  // getBottom: function FakeLayer$getBottom(){ return this.top + this.height },
+  // getRight: function FakeLayer$getRight(){ return this.left + this.width },
+  getWidth: function(){ return this.right - this.left },
+  getHeight: function(){ return this.bottom - this.top },
+
+  getDefaultFilename: function FakeLayer$getDefaultFilename(){
+    return this.getName()
+  },
+  getDefaultPath: function FakeLayer$getDefaultPath(extension){
+    return this.getFakeDocument().getFolderPath() + '/' + this.getDefaultFilename()
+  },
+
+
+////////////////////////////////////////////////////////////////////////////////
+// export
+
+  convertToSmartObject: function FakeLayer$convertToSmartObject(){
+    this.activate()
+    executeAction(stringIDToTypeID("newPlacedLayer"), undefined, DialogModes.NO)
+  },
+  
+  exportContents: function FakeLayer$exportContents(path){
+    this.activate()
+    path = new File((path || this.getDefaultPath()).replace(/(?:\.psb)?$/, '.psb'))
+    if (!path.parent.exists) path.parent.create()
+    
+    var desc = new ActionDescriptor
+    desc.putPath(charIDToTypeID('null'), path)
+    try {
+      executeAction(stringIDToTypeID("placedLayerExportContents"), desc, DialogModes.NO)
+    }
+    catch(e){
+      var layer = this
+      this.getFakeDocument().doThenUndo(function(doc){
+        layer.convertToSmartObject()
+        executeAction(stringIDToTypeID("placedLayerExportContents"), desc, DialogModes.NO)
+      })
+    }
+  },
+  
+  replaceContents: function(path){
+    path = File(path)
+    if (!(path && path.exists)) throw Error('expected path "' + path + '" to exist')
+
+    this.activate()
+    var desc = new ActionDescriptor
+    desc.putPath(charIDToTypeID("null"), path)
+    executeAction(stringIDToTypeID("placedLayerReplaceContents"), desc, DialogModes.NO)
+  },
+  
+  saveTrimmedPNG: function FakeLayer$saveTrimmedPNG(path){
+    if (path == null) path = this.getDefaultPath()
+    var layer = this
+    layer.getFakeDocument().doThenUndo(function(){
+      layer.doWhileThisIsTheOnlyThingVisible(function(){
+        layer.getFakeDocument().trimTransparency()
+        savePNG(path)
+      })
+    })
+  },
+  
+  saveCroppedPNG: function FakeLayer$saveCroppedPNG(state){
+    // console.log('saveCroppedPNG')
+    if (typeof state == 'string') state = this[state] // saveCroppedPNG('state key')
+    if (state == null) state = this.getState();
+    
+    var path = state.path
+    if (path == null) path = this.getDefaultPath();
+    state.path = path
+    
+    var layer = this
+    layer.getFakeDocument().doThenUndo(function(){
+      // console.log('doThenUndo')
+      layer.doWhileThisIsTheOnlyThingVisible(function(){
+        // console.log('doWhileThisIsTheOnlyThingVisible')
+        layer.getFakeDocument().cropToBounds(+state.top, +state.left, +state.bottom, +state.right)
+        savePNG(path)
+        // $.bp()
+      })
+    })
+    return state
+  },
+  
+  doWhileThisIsTheOnlyThingVisible: function FakeLayer$doWhileThisIsTheOnlyThingVisible(callback){
+    this.getFakeDocument().toggleShowOnly(this)
+    this._showAncestors()
+    var metaLayers = this._hideMeta()
+    var result
+    try {
+      result = callback.call(this, this)
+    }
+    catch (e) {
+      throw e
+    }
+    finally {
+      this.getFakeDocument().toggleShowOnly(this)
+      this._resetAncestorVisibility()
+      metaLayers.forEach(function(layer){layer._resetVisibility()})
+    }
+    return result
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+// visible
+
+  _setBool: function FakeLayer$_setBool(key, value){
+    var target = new ActionDescriptor
+    target.putReference(charIDToTypeID("null"), this.getActionReference())
+    
+    var args = new ActionDescriptor
+    args.putBoolean(key, Boolean(value))
+    target.putObject(charIDToTypeID("T   "), charIDToTypeID("Lyr "), args)
+    
+    try {
+      return executeAction(charIDToTypeID("setd"), target, DialogModes.NO)
+    }
+    catch(e){
+      return e
+    }
+  },
+  disableVectorMask: function FakeLayer$disableVectorMask(){
+    return this._setBool(stringIDToTypeID("vectorMaskEnabled"), false)
+  },
+  disableMask: function FakeLayer$disableMask(){
+    return this._setBool(charIDToTypeID("UsrM"), false)
+  },
+
+  _hideMeta: function(){
+    return this.getFakeDocument().getMetaLayers()
+    .filter(function(layer){return layer.visible})
+    .forEach(function(layer){
+      layer.wasVisible = layer.visible
+      layer.hide && layer.hide()
+    })
+  },
+  _showAncestors: function FakeLayer$_showAncestors(){
+    var layer = this
+    while (layer && layer.getParent){
+      layer = layer.getParent()
+      layer.wasVisible = layer.visible
+      layer.show && layer.show()
+      layer.disableMask && layer.disableMask()
+      layer.disableVectorMask && layer.disableVectorMask()
+    }
+  },
+  _resetAncestorVisibility: function FakeLayer$_resetAncestorVisibility(){
+    var layer = this
+    while (layer && layer.getParent){
+      layer = layer.getParent()
+      layer._resetVisibility()
+    }
+  },
+  
+  _resetVisibility: function(){
+    if (this.wasVisible && !this.visible) this.show && this.show()
+    if (!this.wasVisible && this.visible) this.hide && this.hide()
+    delete this.wasVisible
+  },
+  hide: function FakeLayer$hide(){
+    this._executeAction("Hd  ")
+    this.visible = false
+  },
+  show: function FakeLayer$hide(){
+    this._executeAction("Shw ")
+    this.visible = true
+  },
+
+////////////////////////////////////////////////////////////////////////////////
+// setters
+  
+  setName: function(name){
+    this.activate()
+    
+    var classLayer                   = app.charIDToTypeID('Lyr ');
+    var eventSet                     = app.charIDToTypeID('setd');
+    var keyName                      = app.charIDToTypeID('Nm  ');
+    var keyTo                        = app.charIDToTypeID('T   ');
+    var typeNULL                     = app.charIDToTypeID('null');
+    
+    delete this.name
+    delete this.getActionReference
+    
+    // =======================================================
+        var desc785 = new ActionDescriptor();
+        desc785.putReference( typeNULL, this.getActionReference() );
+            var desc786 = new ActionDescriptor();
+            desc786.putString( keyName, name );
+        desc785.putObject( keyTo, classLayer, desc786 );
+    executeAction( eventSet, desc785, DialogModes.NO );
+  },
+  
+  Delete: function(){
+    var desc = new ActionDescriptor
+    desc.putReference(charIDToTypeID('null'), this.getActionReference())
+    executeAction(app.charIDToTypeID('Dlt '), desc, DialogModes.NO)
+  },
+  
+  duplicate: function(){
+    var idDplc = charIDToTypeID( "Dplc" );
+        var desc2 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+        var ref = new ActionReference; ref.putIdentifier(app.charIDToTypeID("Lyr "), this.getID());
+        desc2.putReference( idnull, ref);
+        var idVrsn = charIDToTypeID( "Vrsn" );
+        desc2.putInteger( idVrsn, 5 );
+    executeAction( idDplc, desc2, DialogModes.NO );
+    
+    return FakeLayer.getActiveLayerForDocument(this.getFakeDocument())
+  },
+  
+  translateXY: function(tX, tY){
+    var idTrnf = charIDToTypeID( "Trnf" );
+        var desc158 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+        desc158.putReference( idnull, this.getActionReference() );
+        var idFTcs = charIDToTypeID( "FTcs" ); var idQCSt = charIDToTypeID( "QCSt" ); var idQcszero = charIDToTypeID( "Qcs0" ); desc158.putEnumerated( idFTcs, idQCSt, idQcszero );
+        var idOfst = charIDToTypeID( "Ofst" );
+            var desc159 = new ActionDescriptor();
+            var idHrzn = charIDToTypeID( "Hrzn" ); var idPxl = charIDToTypeID( "#Pxl" ); desc159.putUnitDouble( idHrzn, idPxl, tX);
+            var idVrtc = charIDToTypeID( "Vrtc" ); var idPxl = charIDToTypeID( "#Pxl" ); desc159.putUnitDouble( idVrtc, idPxl, tY);
+        var idOfst = charIDToTypeID( "Ofst" );
+        desc158.putObject( idOfst, idOfst, desc159 );
+        
+        var idIntr = charIDToTypeID( "Intr" ); var idIntp = charIDToTypeID( "Intp" ); var idBcbc = charIDToTypeID( "Bcbc" ); desc158.putEnumerated( idIntr, idIntp, idBcbc );
+    executeAction( idTrnf, desc158, DialogModes.NO );
+  },
+  
+  scaleXY: function(sx, sy){
+    var idTrnf = charIDToTypeID( "Trnf" );
+        var desc158 = new ActionDescriptor();
+        var idnull = charIDToTypeID( "null" );
+        desc158.putReference( idnull, this.getActionReference() );
+        var idFTcs = charIDToTypeID( "FTcs" ); var idQCSt = charIDToTypeID( "QCSt" ); var idQcszero = charIDToTypeID( "Qcs0" ); desc158.putEnumerated( idFTcs, idQCSt, idQcszero );
+
+        // var idOfst = charIDToTypeID( "Ofst" );
+        //     var desc159 = new ActionDescriptor();
+        //     var idHrzn = charIDToTypeID( "Hrzn" ); var idPxl = charIDToTypeID( "#Pxl" ); desc159.putUnitDouble( idHrzn, idPxl, 0);
+        //     var idVrtc = charIDToTypeID( "Vrtc" ); var idPxl = charIDToTypeID( "#Pxl" ); desc159.putUnitDouble( idVrtc, idPxl, 0);
+        // var idOfst = charIDToTypeID( "Ofst" );
+        // desc158.putObject( idOfst, idOfst, desc159 );
+
+        var idWdth = charIDToTypeID( "Wdth" ); var idPrc = charIDToTypeID( "#Prc" ); desc158.putUnitDouble( idWdth, idPrc, sx * 100);
+        var idHght = charIDToTypeID( "Hght" ); var idPrc = charIDToTypeID( "#Prc" ); desc158.putUnitDouble( idHght, idPrc, sy * 100);
+        var idIntr = charIDToTypeID( "Intr" ); var idIntp = charIDToTypeID( "Intp" ); var idBcbc = charIDToTypeID( "Bcbc" ); desc158.putEnumerated( idIntr, idIntp, idBcbc );
+    executeAction( idTrnf, desc158, DialogModes.NO );
+  },
+  
+}
