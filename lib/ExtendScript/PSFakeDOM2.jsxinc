@@ -109,7 +109,7 @@ PSFakeDOM.LayerKeyWhitelist = {
   preserveTransparency:0,
   mode:0,
   layerLocking:0,
-  itemIndex:0,
+  itemIndex:1,
   group:0,
   globalAngle:0,
   fillOpacity:0,
