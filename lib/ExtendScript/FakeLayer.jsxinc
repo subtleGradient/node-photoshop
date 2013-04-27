@@ -1,6 +1,20 @@
 /*jshint asi:true*/
 ////////////////////////////////////////////////////////////////////////////////
 
+function Array$Math_max(){return Math.max.apply(Math, this)}
+Array$Math_max.mixInto = function(array){
+  array.valueOf = this
+  array.toJSON = this
+  return array
+}
+
+function Array$Math_min(){return Math.min.apply(Math, this)}
+Array$Math_min.mixInto = function(array){
+  array.valueOf = this
+  array.toJSON = this
+  return array
+}
+
 FakeLayer.$0 = function(){
   return FakeLayer.getActiveLayerForDocument(FakeDocument.$0())
 }
