@@ -48,7 +48,13 @@ photoshop.execute = function(name, script, callback){
 
 var runQueue = []
 photoshop.run = function(script, callback){
-  runQueue.push({script:script, callback:callback})
+  runQueue.push({
+    script: script,
+    callback: callback,
+    header: PSLIB_SCRIPT + '\n' + TMP_IMPORT_PATHS.map(pathToImport).join('\n')
+  })
+  TMP_IMPORT_PATHS.length = 0
+  
   if (!runReal.isRunning) runReal()
 }
 function runReal(){
@@ -59,8 +65,7 @@ function runReal(){
   
   if (typeof script == 'function') script = ';(' + script.toString() + '());';
   
-  script = PSLIB_SCRIPT + '\n' + TMP_IMPORT_PATHS.map(pathToImport).join('\n') + '\n' + script
-  TMP_IMPORT_PATHS.length = 0
+  script = args.header + '\n' + script
   
   photoshop.debug && console.warn(script + '\n\n')
   
