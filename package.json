@@ -31,7 +31,8 @@
   
   "devDependencies":[
     "tap",
-    "JSONStream"
+    "JSONStream",
+    "concat-stream"
   ],
   
   "os":["darwin"],
