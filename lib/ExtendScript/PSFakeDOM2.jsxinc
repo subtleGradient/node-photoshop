@@ -389,3 +389,30 @@ PSFakeDOM['setLayer_styledTextContent'] = function(layerRef, value){
 PSFakeDOM.getDocumentPath = function(){
   return app.activeDocument.fullName.fsName
 }
+
+PSFakeDOM.setFrame = function(frameNumber){
+  executeAction(stringIDToTypeID("set"), (function(config){
+    var descriptor = new ActionDescriptor;
+    if ("null" in config) descriptor.putReference(stringIDToTypeID("null"), config["null"]);
+    if ("to" in config) descriptor.putObject(stringIDToTypeID("to"), stringIDToTypeID("timecode"), config["to"]);
+    return descriptor
+  })({
+    "null": (function(config){
+      var ref = new ActionReference;
+      if (0 in config) ref.putProperty(stringIDToTypeID("property"), config[0]);
+      if (1 in config) ref.putClass(config[1]);
+      return ref
+    })([stringIDToTypeID("time"), stringIDToTypeID("timeline")]),
+    "to": (function(config){
+      var descriptor = new ActionDescriptor;
+      if ("seconds" in config) descriptor.putInteger(stringIDToTypeID("seconds"), config["seconds"]);
+      if ("frame" in config) descriptor.putInteger(stringIDToTypeID("frame"), config["frame"]);
+      if ("frameRate" in config) descriptor.putDouble(stringIDToTypeID("frameRate"), config["frameRate"]);
+      return descriptor
+    })({
+      "seconds": 0,
+      "frame": frameNumber,
+      "frameRate": 30
+    })
+  }), DialogModes.NO);
+}
