@@ -444,3 +444,7 @@ PSFakeDOM.makeLayer = function() {
 PSFakeDOM.layerRefForActiveLayer = function(){
   return PSFakeDOM.layerRefForId(app.activeDocument.activeLayer.id)
 }
+
+PSFakeDOM.newPlacedLayer = function(){
+  executeAction(stringIDToTypeID("newPlacedLayer"), undefined, DialogModes.NO);
+}
