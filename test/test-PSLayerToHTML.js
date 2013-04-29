@@ -5,7 +5,9 @@ t.test('PSLayerToHTML', function(t){
   
   var throughStream = PSLayerToHTML()
   
-  throughStream.pipe(process.stdout)
+  throughStream.on('data', function(data){
+    console.log(data)
+  })
   
   mockLayers.forEach(function(layer){
     throughStream.write(layer)
