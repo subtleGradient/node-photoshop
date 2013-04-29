@@ -426,3 +426,17 @@ PSFakeDOM.close = function() {
     "saving": "no"
   }), DialogModes.NO);
 }
+
+PSFakeDOM.makeLayer = function() {
+  executeAction(stringIDToTypeID("make"), (function(config) {
+    var descriptor = new ActionDescriptor;
+    if ("null" in config) descriptor.putReference(stringIDToTypeID("null"), config["null"]);
+    return descriptor
+  })({
+    "null": (function(config) {
+      var ref = new ActionReference;
+      if (0 in config) ref.putClass(config[0]);
+      return ref
+    })([stringIDToTypeID("layer")])
+  }), DialogModes.NO);
+}
