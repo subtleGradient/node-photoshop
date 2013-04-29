@@ -1380,10 +1380,6 @@ function layerRef_setOpacity(layerRef, opacity){
   executeAction( idsetd, desc3, DialogModes.NO );
 }
 
-function scaleSmartObjectInnards(layerRef, scale){
-  
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
