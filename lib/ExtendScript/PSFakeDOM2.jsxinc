@@ -416,3 +416,13 @@ PSFakeDOM.setFrame = function(frameNumber){
     })
   }), DialogModes.NO);
 }
+
+PSFakeDOM.close = function() {
+  executeAction(stringIDToTypeID("close"), (function(config) {
+    var descriptor = new ActionDescriptor;
+    if ("saving" in config) descriptor.putEnumerated(stringIDToTypeID("saving"), stringIDToTypeID("yesNo"), stringIDToTypeID(config["saving"]));
+    return descriptor
+  })({
+    "saving": "no"
+  }), DialogModes.NO);
+}
