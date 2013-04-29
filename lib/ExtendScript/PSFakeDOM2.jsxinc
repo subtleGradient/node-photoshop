@@ -448,3 +448,35 @@ PSFakeDOM.layerRefForActiveLayer = function(){
 PSFakeDOM.newPlacedLayer = function(){
   executeAction(stringIDToTypeID("newPlacedLayer"), undefined, DialogModes.NO);
 }
+
+PSFakeDOM.makeDocument = function() {
+  var idMk = charIDToTypeID( "Mk  " );
+      var desc1 = new ActionDescriptor();
+      var idNw = charIDToTypeID( "Nw  " );
+          var desc2 = new ActionDescriptor();
+          var idMd = charIDToTypeID( "Md  " );
+          var idRGBM = charIDToTypeID( "RGBM" );
+          desc2.putClass( idMd, idRGBM );
+          var idWdth = charIDToTypeID( "Wdth" );
+          var idRlt = charIDToTypeID( "#Rlt" );
+          desc2.putUnitDouble( idWdth, idRlt, 512 );
+          var idHght = charIDToTypeID( "Hght" );
+          var idRlt = charIDToTypeID( "#Rlt" );
+          desc2.putUnitDouble( idHght, idRlt, 512 );
+          var idRslt = charIDToTypeID( "Rslt" );
+          var idRsl = charIDToTypeID( "#Rsl" );
+          desc2.putUnitDouble( idRslt, idRsl, 72 );
+          var idpixelScaleFactor = stringIDToTypeID( "pixelScaleFactor" );
+          desc2.putDouble( idpixelScaleFactor, 1 );
+          var idFl = charIDToTypeID( "Fl  " );
+          var idFl = charIDToTypeID( "Fl  " );
+          var idTrns = charIDToTypeID( "Trns" );
+          desc2.putEnumerated( idFl, idFl, idTrns );
+          var idDpth = charIDToTypeID( "Dpth" );
+          desc2.putInteger( idDpth, 8 );
+          var idprofile = stringIDToTypeID( "profile" );
+          desc2.putString( idprofile, """sRGB IEC61966-2.1""" );
+      var idDcmn = charIDToTypeID( "Dcmn" );
+      desc1.putObject( idNw, idDcmn, desc2 );
+  executeAction( idMk, desc1, DialogModes.NO );
+}
