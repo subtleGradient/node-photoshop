@@ -440,3 +440,7 @@ PSFakeDOM.makeLayer = function() {
     })([stringIDToTypeID("layer")])
   }), DialogModes.NO);
 }
+
+PSFakeDOM.layerRefForActiveLayer = function(){
+  return PSFakeDOM.layerRefForId(app.activeDocument.activeLayer.id)
+}
