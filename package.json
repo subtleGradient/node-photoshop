@@ -1,6 +1,6 @@
 {
   "name": "photoshop",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Control Adobe Photoshop from Node.js",
   "main": "index.js",
   "scripts": {
@@ -21,12 +21,13 @@
     "psd",
     "png",
     "pdf",
-    "stream"
+    "stream",
+    "stream2"
   ],
   
   "dependencies":[
     "lockfile@~0.3",
-    "streamify"
+    "readable-stream"
   ],
   
   "devDependencies":[
