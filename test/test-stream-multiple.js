@@ -5,6 +5,8 @@ var createStream = require('../lib/photoshop-stream').createStream
 t.test('stream write', function(t){
   
   var stream = createStream(function(error, streamAddress){
+    t.notOk(error)
+    t.pass(streamAddress)
     
     psEval(function(a, b, streamAddress, c){
       
@@ -16,7 +18,7 @@ t.test('stream write', function(t){
     
   })
   
-  t.plan(1)
+  t.plan(3)
   
   stream.on('data', function(data){
     t.is(Number(String(data)), 1 + 2 + 3)
