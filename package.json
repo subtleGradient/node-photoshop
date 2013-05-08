@@ -1,6 +1,6 @@
 {
   "name": "photoshop",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Control Adobe Photoshop from Node.js",
   "main": "index.js",
   "scripts": {
