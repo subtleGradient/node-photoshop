@@ -31,7 +31,7 @@ t.test("error objects aren't completely useless", function(t){
   photoshop.invoke(function(msg){ console.assert(false, msg) }, [msg], function(error){
     t.is(typeof error, 'object')
     t.is(error.message, msg, 'message')
-    t.ok(require('fs').existsSync(error.fileName), 'fileName "' + error.fileName + '" is a real file')
+    t.ok(require('fs').existsSync(error.fileName), 'fileName is a real file')
     t.is(error.source, undefined)
     t.end()
   })
