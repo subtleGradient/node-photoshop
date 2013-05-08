@@ -33,10 +33,10 @@ t.test("consecutive scripts wait for the previous script to end", function(t){
   t.plan(2)
   psEval('$.sleep(1000)').on('end', function(){
     t.pass('first script')
-  })
+  }).resume()
   psEval('"lulz"').once('end', function(){
     t.pass('second script')
-  })
+  }).resume()
 })
 
 t.test("multiple scripts return the correct result", function(t){

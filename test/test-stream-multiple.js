@@ -15,6 +15,7 @@ t.test('stream write', function(t){
       socket.write(a+b+c)
       
     }, [1, 2, streamAddress, 3])
+    .resume()
     
   })
   
