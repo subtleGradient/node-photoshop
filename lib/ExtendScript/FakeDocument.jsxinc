@@ -357,7 +357,12 @@ FakeDocument.prototype = { constructor: FakeDocument,
   },
 
   applyLayerCompNamed: function FakeDocument$applyLayerCompNamed(layerCompName) {
-    if (!layerCompName) return;
+    if (!layerCompName || layerCompName == "Current State"){
+      executeAction(stringIDToTypeID("resetFromComp"), undefined, DialogModes.NO);
+      delete this.activeLayerCompName
+      return true
+    }
+    
     var idcompsClass = stringIDToTypeID("compsClass")
     var idnull = charIDToTypeID("null")
     var idapplyComp = stringIDToTypeID("applyComp")

@@ -480,3 +480,7 @@ PSFakeDOM.makeDocument = function() {
       desc1.putObject( idNw, idDcmn, desc2 );
   executeAction( idMk, desc1, DialogModes.NO );
 }
+
+PSFakeDOM.resetLayerComp = function(){
+  executeAction(stringIDToTypeID("resetFromComp"), undefined, DialogModes.NO);
+}
