@@ -4,7 +4,13 @@ if (typeof JSON != 'object'){
 
 if (typeof this.console != 'object'){
   this.console = {
-    log: function(){$.writeln.call($, JSON.stringify(arguments[0]))},
+    log: function(){
+      Array.prototype.slice.call(arguments).forEach(function(arg){
+        $.write.call($, JSON.stringify(arg))
+        $.write('\t')
+      })
+      $.writeln()
+    },
     assert: function(True, message){
       if (!True) throw Error(message)
     },
