@@ -22,10 +22,9 @@ var TEMPLATE = function(){
   else app.activeDocument.suspendHistory(decodeURIComponent("$NAME"), "transactionWrapper()")
   return result
 }
-var APP_NAME = 'Adobe Photoshop CS6'
 
 photoshop.setAppName = function(appName){
-  APP_NAME = appName
+  psEval.NAME = appName
   return photoshop
 }
 

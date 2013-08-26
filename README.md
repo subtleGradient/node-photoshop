@@ -4,7 +4,7 @@ Adobe Photoshop has an EcmaScript 3 compatible scripting engine.
 Its variant of EcmaScript is called ExtendScript.  
 ExtendScript files use the `jsx` file extension.  
 The ExtendScript Toolkit.app will let you experiment with this code.  
-It's installed at `/Applications/Utilities/Adobe Utilities-CS6.localized/ExtendScript Toolkit CS6/ExtendScript Toolkit.app`.
+It's installed at `/Applications/Utilities/Adobe Utilities-CC.localized/ExtendScript Toolkit CC/ExtendScript Toolkit.app`.
 
 ### Here's some sample ExtendScript
 
