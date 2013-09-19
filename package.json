@@ -1,6 +1,6 @@
 {
   "name": "photoshop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Control Adobe Photoshop from Node.js",
   "main": "index.js",
   "scripts": {
@@ -24,20 +24,18 @@
     "stream",
     "stream2"
   ],
-  
-  "dependencies":[
+  "dependencies": [
     "lockfile@~0.3",
     "readable-stream"
   ],
-  
-  "devDependencies":[
+  "devDependencies": [
     "tap",
     "JSONStream",
     "concat-stream"
   ],
-  
-  "os":["darwin"],
-  
+  "os": [
+    "darwin"
+  ],
   "author": "Thomas Aylott <oblivious@subtlegradient.com>",
   "copyright": "2013 Facebook",
   "license": "MIT"
