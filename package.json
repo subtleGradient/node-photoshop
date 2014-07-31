@@ -1,6 +1,6 @@
 {
   "name": "photoshop",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Control Adobe Photoshop from Node.js",
   "main": "index.js",
   "scripts": {
@@ -13,14 +13,18 @@
   "keywords": [
     "adobe",
     "photoshop",
+    "aftereffects",
+    "After Effects",
     "graphics",
     "layers",
     "layout",
     "image",
     "filter",
     "psd",
+    "aep",
     "png",
     "pdf",
+    "jsx",
     "stream",
     "stream2"
   ],
