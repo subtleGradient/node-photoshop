@@ -25,7 +25,7 @@ It's installed at `/Applications/Utilities/Adobe Utilities-CC.localized/ExtendSc
 
 ---
 
-# Photoshop scripting with Node.js
+# Photoshop / After Effects scripting with Node.js
 
 ## Install
 
@@ -42,7 +42,6 @@ The `jsx` function will be called with an ExtendScript `Socket` instance and wha
 
 Writing to the socket from Photoshop will immediately stream that string back to node.
 
-
     function streamColorChanges_jsx(writeStream, setColor_jsx, color){
       writeStream.write(setColor_jsx(color));
       alert("Photoshop won't return until this window is closed, but the stream already sent its data!");
@@ -56,6 +55,14 @@ Writing to the socket from Photoshop will immediately stream that string back to
       console.log('Done!')
     });
 
+
+## `aftereffects.createStream(jsx, [args])`
+
+    require('photoshop/aftereffects').createStream(function jsx(stream, props){
+      stream.writeln(JSON.stringify(props))
+      alert("After Effects won't return until this window is closed, but the stream already sent its data!")
+    }, [{lulz:true}])
+    .pipe(process.stdout)
 
 
 ## `photoshop.invoke(jsx, [args,] callback)`
