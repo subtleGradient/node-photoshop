@@ -1,0 +1,102 @@
+;(function(){
+////////////////////////////////////////////////////////////////////////////////
+
+function ItemMixin(){}
+ItemMixin.prototype = {
+  ao_lulz: function(){
+    return "lulz"
+  },
+};
+
+copyProperties(FootageItem.prototype, ItemMixin.prototype);
+copyProperties(FolderItem.prototype, ItemMixin.prototype);
+copyProperties(CompItem.prototype, ItemMixin.prototype);
+
+////////////////////////////////////////////////////////////////////////////////
+
+function CollectionMixin(){}
+CollectionMixin.prototype.ao_toArray = function(){
+  var collection = this;
+  var array = [];
+  var minIndex = 1;
+  var length = collection.length;
+  for (var index = minIndex; index <= length; index++) {
+    array[index] = collection[index];
+  }
+  return array;
+};
+copyProperties(ItemCollection.prototype, CollectionMixin.prototype);
+copyProperties(LayerCollection.prototype, CollectionMixin.prototype);
+
+ItemCollection.prototype.ao_comps = function(){
+  return this.ao_toArray().filter(function(item){return item && item instanceof CompItem});
+}
+ItemCollection.prototype.ao_folders = function(){
+  return this.ao_toArray().filter(function(item){return item && item instanceof FolderItem});
+}
+ItemCollection.prototype.ao_footage = function(){
+  return this.ao_toArray().filter(function(item){return item && item instanceof FootageItem});
+}
+
+function HasItemsMixin(){}
+HasItemsMixin.prototype.ao_comps = function(){return this.items? this.items.ao_comps() : []}
+HasItemsMixin.prototype.ao_folders = function(){return this.items? this.items.ao_folders() : []}
+HasItemsMixin.prototype.ao_footage = function(){return this.items? this.items.ao_footage() : []}
+
+copyProperties(Project, HasItemsMixin.prototype)
+copyProperties(FolderItem, HasItemsMixin.prototype)
+
+Object.ao_shallowClone = function(object){
+  if (object == null) return;
+  var clone = {};
+  Object.keys(object).forEach(function(key){
+    var value;
+    try {
+      value = object[key];
+    } catch(e){}
+    var type = typeof value;
+    if (value == null || !(type == 'boolean' || type == 'string' || type == 'number' || (type == 'object' && Array.isArray(value)))){
+      return;
+      // value = {type:type, name:Object.prototype.toString.call(value)};
+    }
+    clone[key] = value;
+  });
+  return clone;
+}
+
+function PropertyMixin(){}
+PropertyMixin.prototype.toJSON = function(){
+  return Object.ao_shallowClone(this);
+}
+copyProperties(Property.prototype, PropertyMixin.prototype);
+copyProperties(PropertyGroup.prototype, PropertyMixin.prototype);
+
+function HasPropertiesMixin(){}
+HasPropertiesMixin.prototype.ao_properties = function(){
+  var numProperties = this.numProperties;
+  var properties = [];
+  for (var index = 1; index <= numProperties; index++) {
+    properties.push(this.property(index));
+  }
+  return properties;
+}
+HasPropertiesMixin.prototype.toJSON = function(){
+  var clone = Object.ao_shallowClone(this);
+  clone.__type__ = this.constructor.name;
+  clone.properties = this.ao_properties();
+  return clone;
+};
+copyProperties(Layer.prototype, HasPropertiesMixin.prototype);
+copyProperties(AVLayer.prototype, HasPropertiesMixin.prototype);
+copyProperties(PropertyGroup.prototype, HasPropertiesMixin.prototype);
+
+////////////////////////////////////////////////////////////////////////////////
+
+function copyProperties(object, mixin){
+  Object.keys(mixin).forEach(function(key){
+    object[key] = mixin[key];
+  });
+  return object;
+}
+
+}());

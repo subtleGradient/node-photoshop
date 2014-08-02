@@ -3,3 +3,6 @@
 #include "./vendor/es5-shim.js"
 #include "./vendor/json2.js"
 #include "./console.jsxinc"
+
+// Extend
+#include "./prototype-extensions-ae.jsxinc"
