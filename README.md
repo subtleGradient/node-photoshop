@@ -65,6 +65,23 @@ Writing to the socket from Photoshop will immediately stream that string back to
     .pipe(process.stdout)
 
 
+### `JSON`ify manythings!
+
+    require('./aftereffects').createStream(function jsx(stream, props){
+    
+      var composition = app.project.ao_comps()[0];
+      var layer = composition.layers[1];
+    
+      stream.writeln(
+        JSON.stringify(layer, null, 2)
+      );
+    
+      stream.writeln(JSON.stringify(props))
+    
+    }, [{lulz:Math.random(0)}])
+    .pipe(process.stdout)
+
+
 ## `photoshop.invoke(jsx, [args,] callback)`
 
 The `invoke` method evaluates the given ExtendScript script in Adobe Photoshop.  

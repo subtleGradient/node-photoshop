@@ -1,7 +1,7 @@
 {
   "name": "photoshop",
-  "version": "0.5.0",
-  "description": "Control Adobe Photoshop from Node.js",
+  "version": "0.5.1",
+  "description": "Control Adobe Photoshop and After Effects from Node.js",
   "main": "index.js",
   "scripts": {
     "test": "tap test/test-*.js"

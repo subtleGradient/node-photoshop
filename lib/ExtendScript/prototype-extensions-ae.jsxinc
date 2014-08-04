@@ -1,4 +1,34 @@
-;(function(){
+;(function(exports){
+////////////////////////////////////////////////////////////////////////////////
+
+function copyProperties(object, mixin){
+  if (typeof object != 'object') {
+    console.warn('copyProperties expected object to be an object');
+  }
+  Object.keys(mixin).forEach(function(key){
+    object[key] = mixin[key];
+  });
+  return object;
+}
+
+Object.ao_shallowClone = function(object){
+  if (object == null) return;
+  var clone = {};
+  Object.keys(object).forEach(function(key){
+    var value;
+    try {
+      value = object[key];
+    } catch(e){}
+    var type = typeof value;
+    if (value == null || !(type == 'boolean' || type == 'string' || type == 'number' || (type == 'object' && Array.isArray(value)))){
+      return;
+      // value = {type:type, name:Object.prototype.toString.call(value)};
+    }
+    clone[key] = value;
+  });
+  return clone;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 function ItemMixin(){}
@@ -28,45 +58,73 @@ CollectionMixin.prototype.ao_toArray = function(){
 copyProperties(ItemCollection.prototype, CollectionMixin.prototype);
 copyProperties(LayerCollection.prototype, CollectionMixin.prototype);
 
-ItemCollection.prototype.ao_comps = function(){
-  return this.ao_toArray().filter(function(item){return item && item instanceof CompItem});
-}
-ItemCollection.prototype.ao_folders = function(){
-  return this.ao_toArray().filter(function(item){return item && item instanceof FolderItem});
-}
-ItemCollection.prototype.ao_footage = function(){
-  return this.ao_toArray().filter(function(item){return item && item instanceof FootageItem});
-}
+////////////////////////////////////////////////////////////////////////////////
+
+ItemCollection.prototype.ao_comps = function(){return this.ao_toArray().filter(function(item){return item && item instanceof CompItem})}
+ItemCollection.prototype.ao_folders = function(){return this.ao_toArray().filter(function(item){return item && item instanceof FolderItem})}
+ItemCollection.prototype.ao_footage = function(){return this.ao_toArray().filter(function(item){return item && item instanceof FootageItem})}
+
+////////////////////////////////////////////////////////////////////////////////
 
 function HasItemsMixin(){}
 HasItemsMixin.prototype.ao_comps = function(){return this.items? this.items.ao_comps() : []}
 HasItemsMixin.prototype.ao_folders = function(){return this.items? this.items.ao_folders() : []}
 HasItemsMixin.prototype.ao_footage = function(){return this.items? this.items.ao_footage() : []}
 
-copyProperties(Project, HasItemsMixin.prototype)
-copyProperties(FolderItem, HasItemsMixin.prototype)
+copyProperties(Project.prototype, HasItemsMixin.prototype)
+copyProperties(FolderItem.prototype, HasItemsMixin.prototype)
 
-Object.ao_shallowClone = function(object){
-  if (object == null) return;
-  var clone = {};
-  Object.keys(object).forEach(function(key){
-    var value;
-    try {
-      value = object[key];
-    } catch(e){}
-    var type = typeof value;
-    if (value == null || !(type == 'boolean' || type == 'string' || type == 'number' || (type == 'object' && Array.isArray(value)))){
-      return;
-      // value = {type:type, name:Object.prototype.toString.call(value)};
-    }
-    clone[key] = value;
-  });
-  return clone;
+////////////////////////////////////////////////////////////////////////////////
+
+VirtualKeyframe.MIN_INDEX = 1;
+function VirtualKeyframe(property, index){
+  if (!(this instanceof VirtualKeyframe)) throw Error('Expected new VirtualKeyframe');
+  if (index < VirtualKeyframe.MIN_INDEX) throw Error('Invalid Keyframe index. Too low');
+  if (index > property.numKeys) throw Error('Invalid Keyframe index. Too high');
+  this.index = index;
+  this.time = property.keyTime(index);
+  this.value = property.keyValue(index);
+  
+  try{this.inInterpolationType = property.keyInInterpolationType(index);}catch(e){}
+  try{this.outInterpolationType = property.keyOutInterpolationType(index);}catch(e){}
+  try{this.inSpatialTangent = property.keyInSpatialTangent(index);}catch(e){}
+  try{this.outSpatialTangent = property.keyOutSpatialTangent(index);}catch(e){}
+  try{this.inTemporalEase = property.keyInTemporalEase(index);}catch(e){}
+  try{this.outTemporalEase = property.keyOutTemporalEase(index);}catch(e){}
+  try{this.temporalContinuous = property.keyTemporalContinuous(index);}catch(e){}
+  try{this.temporalAutoBezier = property.keyTemporalAutoBezier(index);}catch(e){}
+  try{this.spatialContinuous = property.keySpatialContinuous(index);}catch(e){}
+  try{this.spatialAutoBezier = property.keySpatialAutoBezier(index);}catch(e){}
+  try{this.roving = property.keyRoving(index);}catch(e){}
+  try{this.selected = property.keySelected(index);}catch(e){}
+
+  return this;
 }
+exports.VirtualKeyframe = VirtualKeyframe;
+
+////////////////////////////////////////////////////////////////////////////////
+
+function HasKeyframesMixin(){}
+HasKeyframesMixin.empty = [];
+HasKeyframesMixin.prototype.ao_keyframes = function(){
+  var numKeys = this.numKeys;
+  if (numKeys == 0 || numKeys == null) return HasKeyframesMixin.empty;
+  var keyframes = [];
+  for (var index = 1; index <= numKeys; index++) {
+    keyframes.push(new VirtualKeyframe(this, index));
+  }
+  return keyframes;
+}
+copyProperties(Property.prototype, HasKeyframesMixin.prototype);
 
 function PropertyMixin(){}
 PropertyMixin.prototype.toJSON = function(){
-  return Object.ao_shallowClone(this);
+  var clone = Object.ao_shallowClone(this);
+  clone.__type__ = this.constructor.name;
+  if (this.ao_keyframes) {
+    clone.keyframes = this.ao_keyframes();
+  }
+  return clone;
 }
 copyProperties(Property.prototype, PropertyMixin.prototype);
 copyProperties(PropertyGroup.prototype, PropertyMixin.prototype);
@@ -90,13 +148,4 @@ copyProperties(Layer.prototype, HasPropertiesMixin.prototype);
 copyProperties(AVLayer.prototype, HasPropertiesMixin.prototype);
 copyProperties(PropertyGroup.prototype, HasPropertiesMixin.prototype);
 
-////////////////////////////////////////////////////////////////////////////////
-
-function copyProperties(object, mixin){
-  Object.keys(mixin).forEach(function(key){
-    object[key] = mixin[key];
-  });
-  return object;
-}
-
-}());
+}($.global));
