@@ -122,8 +122,8 @@ CompItem.prototype.toJSON = function(key){//$.writeln('CompItem.prototype.toJSON
     $.writeln('ignoring blacklisted key: ' + key);
     return;
   }
-  var clone = {};
-  // var clone = Object.ao_shallowClone(this);
+  // var clone = {};
+  var clone = Object.ao_shallowClone(this);
   clone.__type__ = this.constructor.name;
   // if (this.usedIn) {
   //   clone.usedIn = clone.usedIn.map(function(comp){
