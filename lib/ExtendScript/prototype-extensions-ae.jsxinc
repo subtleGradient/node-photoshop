@@ -397,6 +397,7 @@ copyProperties(AVLayer.prototype, HasPropertiesMixin.prototype);
 copyProperties(TextLayer.prototype, HasPropertiesMixin.prototype);
 copyProperties(ShapeLayer.prototype, HasPropertiesMixin.prototype);
 copyProperties(LightLayer.prototype, HasPropertiesMixin.prototype);
+copyProperties(CameraLayer.prototype, HasPropertiesMixin.prototype);
 copyProperties(PropertyGroup.prototype, HasPropertiesMixin.prototype);
 copyProperties(MaskPropertyGroup.prototype, HasPropertiesMixin.prototype);
 
