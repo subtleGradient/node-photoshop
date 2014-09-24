@@ -1,5 +1,5 @@
-// #target "aftereffects"
-// #include "/Users/aylott/Dropbox (Facebook)/AoPS.nw/node_modules/photoshop/lib/ExtendScript/index-ae.jsxinc"
+#target "aftereffects"
+#include "./lib/ExtendScript/index-ae.jsxinc"
 
 if (typeof STDOUT == 'undefined') {
   STDOUT = $;
