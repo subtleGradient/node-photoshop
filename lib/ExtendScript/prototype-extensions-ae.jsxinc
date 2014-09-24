@@ -12,10 +12,15 @@ Array.prototype.toJSON = function(){
 }
 
 Project.prototype.toJSON = function(key){
-  return {
-    file: this.file.fsName,
-    items: this.items,
-  };
+  // var clone = {};
+  var clone = Object.ao_shallowClone(this);
+  try {
+    clone.file = this.file.fsName;
+  } catch(e){}
+  try {
+    clone.items = this.items;
+  } catch(e){}
+  return clone;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
