@@ -133,8 +133,7 @@ photoshop.invoke = function(fn, args, callback){
 var psStream = require('./lib/photoshop-stream').psStream
 
 photoshop.createStream = function(jsx, args){
-  jsx.__jsx_prefix__ = jsx_header()
-  return psStream(jsx, args)
+  return psStream(jsx, args, jsx_header())
 }
 
 function jsx_header(){
