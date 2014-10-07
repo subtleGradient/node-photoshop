@@ -381,10 +381,18 @@ HasPropertiesMixin.prototype.toJSON = function(key){//$.writeln('HasPropertiesMi
   if (this.propertyType) clone.propertyType = PropertyTypeKeysByID[this.propertyType];
   if (this.propertyValueType) clone.propertyValueType = PropertyValueTypeKeysByID[this.propertyValueType];
 
-  // if (this.source) {
-  //   clone.source$name = this.source.name;
-  //   clone.source$id = this.source.id;
-  // }
+  var hasSource;
+  try {
+    hasSource = !!this.source;
+  } catch(e){}
+  if (hasSource) {
+    try {
+      clone.source$name = this.source.name;
+    } catch(e){}
+    try {
+      clone.source$id = this.source.id;
+    } catch(e){}
+  }
   if (this.ao_properties) {
     clone.properties = this.ao_properties();
   }
