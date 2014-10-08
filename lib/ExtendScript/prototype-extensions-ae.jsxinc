@@ -476,6 +476,16 @@ PropertyMixin.prototype.toJSON = function(key){//$.writeln('PropertyMixin.protot
 
 // PropertyMixin.prototype.toJSON = Object.prototype.toJSON;
 
+File.prototype.toJSON = function(key){//$.writeln('File.prototype.toJSON', key);
+  return this.fsName;
+}
+FootageItem.prototype.toJSON = function(key){//$.writeln('FootageItem.prototype.toJSON', key);
+  var clone = Object.ao_shallowClone(this);
+  clone.__type__ = this.constructor.name;
+  clone.file = this.file;
+  return clone;
+};
+
 PropertyMixin.prototype.toJSON = function(key){//$.writeln('PropertyMixin.prototype.toJSON', key);
   if (Object.ao_shallowClone.BLACKLIST[key]) {
     $.writeln('ignoring blacklisted key: ' + key);
