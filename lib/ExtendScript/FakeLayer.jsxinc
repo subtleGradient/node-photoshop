@@ -549,6 +549,25 @@ FakeLayer.prototype = { constructor: FakeLayer,
     return state
   },
   
+  saveCroppedPNGToPath: function FakeLayer$saveCroppedPNGToPath(path){
+    var state = this.getState();
+    
+    if (path == null) path = this.getDefaultPath();
+    state.path = path
+    
+    var layer = this
+    layer.getFakeDocument().doThenUndo(function(){
+      // console.log('doThenUndo')
+      layer.doWhileThisIsTheOnlyThingVisible(function(){
+        // console.log('doWhileThisIsTheOnlyThingVisible')
+        layer.getFakeDocument().cropToBounds(+state.top, +state.left, +state.bottom, +state.right)
+        savePNG(path)
+        // $.bp()
+      })
+    })
+    return state
+  },
+  
   doWhileThisIsTheOnlyThingVisible: function FakeLayer$doWhileThisIsTheOnlyThingVisible(callback){
     this.getFakeDocument().toggleShowOnly(this)
     this._showAncestors()
