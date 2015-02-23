@@ -88,12 +88,30 @@ Object.ao_shallowClone = function(object){//$.writeln('Object.ao_shallowClone');
     // }
     if (value === true || type == 'string' || type == 'number') {
       clone[key] = value;
-    } else if (type == 'object') {
+    } else if (type == 'object' && value != null) {
       clone[key + '$__type__'] = value && value.constructor && value.constructor.name || type;
+      Object.keys(Object.ao_shallowClone.WHITELIST).forEach(function(subKey){
+        if (!(subKey in value)) {
+          return;
+        }
+        var subValue = value[subKey];
+        var subValueType = typeof subValue;
+        if (subValue == null || !(subValueType == 'string' || subValueType == 'number')) {
+          return;
+        }
+        try {
+          clone[key + '$' + subKey] = subValue;
+        } catch(e){}
+      });
     }
   });
   return clone;
 }
+Object.ao_shallowClone.WHITELIST = {
+  id: true,
+  index: true,
+  name: true,
+};
 Object.ao_shallowClone.BLACKLIST = {
   parent: true,
   parentFolder: true,
