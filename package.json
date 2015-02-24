@@ -1,6 +1,6 @@
 {
   "name": "photoshop",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Control Adobe Photoshop and After Effects from Node.js",
   "main": "index.js",
   "scripts": {
