@@ -1,5 +1,8 @@
 var t = require('tap')
 var photoshop = require('../')
+// require('../lib/functionToExtendScript').DEBUG = true
+// require('../lib/transformES6').DEBUG = true
+// require('../lib/extendscript-stream').debug = true
 
 t.test("stream layers", function(t){
   

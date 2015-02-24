@@ -1,5 +1,8 @@
 var t = require('tap')
 var psStream = require('../lib/photoshop-stream').psStream
+// require('../lib/functionToExtendScript').DEBUG = true
+// require('../lib/transformES6').DEBUG = true
+// require('../lib/extendscript-stream').debug = true
 
 t.test('stream write', function(t){
   

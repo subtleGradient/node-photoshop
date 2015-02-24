@@ -9,8 +9,9 @@ function openFile_jsx(path){
 
 test('open a file', function(t){
   var psd = __dirname + '/stuff/some stuff.psd'
+
   photoshop.invoke(openFile_jsx, [psd], function(error, path){
-    t.ok(error == null, 'no error')
+    t.ok(error == null, 'should not throw ' + JSON.stringify(error))
     t.equal(psd, path, 'activeDocument must be the one we just tried to open')
     
     
