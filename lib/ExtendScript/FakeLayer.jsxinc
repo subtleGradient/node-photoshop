@@ -549,6 +549,25 @@ FakeLayer.prototype = { constructor: FakeLayer,
     return state
   },
   
+  saveCroppedPNGToPath: function FakeLayer$saveCroppedPNGToPath(path){
+    var state = this.getState();
+    
+    if (path == null) path = this.getDefaultPath();
+    state.path = path
+    
+    var layer = this
+    layer.getFakeDocument().doThenUndo(function(){
+      // console.log('doThenUndo')
+      layer.doWhileThisIsTheOnlyThingVisible(function(){
+        // console.log('doWhileThisIsTheOnlyThingVisible')
+        layer.getFakeDocument().cropToBounds(+state.top, +state.left, +state.bottom, +state.right)
+        savePNG(path)
+        // $.bp()
+      })
+    })
+    return state
+  },
+  
   doWhileThisIsTheOnlyThingVisible: function FakeLayer$doWhileThisIsTheOnlyThingVisible(callback){
     this.getFakeDocument().toggleShowOnly(this)
     this._showAncestors()
@@ -713,4 +732,26 @@ FakeLayer.prototype = { constructor: FakeLayer,
     executeAction( idTrnf, desc158, DialogModes.NO );
   },
   
+  toJSON: function(){
+    this.getState(this);
+    return this;
+  },
+}
+
+function savePNG(filePath){
+  // =======================================================
+  // Save
+  var desc86 = new ActionDescriptor
+  desc86.putEnumerated(charIDToTypeID("PGIT"), charIDToTypeID("PGIT"), charIDToTypeID("PGIN"))
+  desc86.putEnumerated(charIDToTypeID("PNGf"), charIDToTypeID("PNGf"), charIDToTypeID("PGAd"))
+  desc86.putInteger(charIDToTypeID("Cmpr"), 9)
+
+  var desc85 = new ActionDescriptor
+  desc85.putObject(charIDToTypeID("As  "), charIDToTypeID("PNGF"), desc86)
+  desc85.putPath(charIDToTypeID("In  "), new File(filePath))
+  desc85.putInteger(charIDToTypeID("DocI"), 35)
+  desc85.putBoolean(charIDToTypeID("Cpy "), true)
+  desc85.putBoolean(charIDToTypeID("LwCs"), true)
+  desc85.putEnumerated(stringIDToTypeID("saveStage"), stringIDToTypeID("saveStageType"), stringIDToTypeID("saveBegin"))
+  executeAction(charIDToTypeID("save"), desc85, DialogModes.NO)
 }

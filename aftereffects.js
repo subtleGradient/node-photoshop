@@ -38,8 +38,7 @@ aftereffects.include = function(paths){
 var aeStream = require('./lib/aftereffects-stream').aeStream
 
 aftereffects.createStream = function(jsx, args){
-  jsx.__jsx_prefix__ = jsx_header()
-  return aeStream(jsx, args)
+  return aeStream(jsx, args, jsx_header())
 }
 
 function jsx_header(){

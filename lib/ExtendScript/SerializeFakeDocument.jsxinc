@@ -1,0 +1,52 @@
+/*jshint asi:true evil:true*/
+
+function SerializeFakeDocument(document){
+  this._document = document
+}
+
+SerializeFakeDocument.prototype = {
+  
+  constructor:SerializeFakeDocument,
+  
+  toJSON: function(){
+    var doc = this._document
+    var json
+    var layers = doc.getFakeLayers()
+    json = {
+      name: doc.getName(),
+      path: doc.getFilePath(),
+      jsonPath: this.path,
+      width: doc.getWidth(),
+      height: doc.getHeight(),
+      layerCompNames: doc.getLayerCompNames(),
+      activeLayerCompName: doc.getActiveLayerCompName(),
+      childIndexes: doc.childIndexes,
+      // children: doc.getChildren(),
+      layers: layers,
+      rawLayers: PSFakeDOM.getLayersArray(),
+    }
+    
+    return json
+  },
+  
+  exportJSON: function(path){
+    path = this.path = path || this.getDefaultPath()
+    
+    var json = JSON.stringify(this.toJSON(), null, 4)
+    
+    var file = new File(path)
+    file.open('w')
+    file.writeln(json)
+    file.close()
+    return json
+  },
+  
+  getDefaultPath: function(){
+    var path = this._document.getFilePath()
+    var activeLayerCompName = this._document.getActiveLayerCompName()
+    if (activeLayerCompName) path = path + '.' + activeLayerCompName
+    path += '.json'
+    return path
+  },
+  
+}
