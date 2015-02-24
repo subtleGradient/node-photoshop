@@ -17,8 +17,9 @@ test('open a file', function(t){
     
     test('getLayers', function(t){
       photoshop.invoke('PSFakeDOM.getLayers', function(error, layers){
+        
         t.ok(error == null, 'no error')
-        t.ok(-1 in layers, 'has layer -1')
+        t.ok(!!layers[-1], 'has layer -1')
         
         Object.keys(layers).map(Number).forEach(function(layerID){
           t.equal(layerID, layers[layerID].layerID, 'layerID key')
@@ -27,7 +28,6 @@ test('open a file', function(t){
           }
           else { verify_Layer(t, layers[layerID]) }
         })
-        // console.log(layers)
         
         photoshop.invoke('app.activeDocument.close', function(error){
           t.ok(error == null, 'no error')
