@@ -687,3 +687,21 @@ FakeDocument.prototype = { constructor: FakeDocument,
   },
 
 }
+
+function savePNG(filePath){
+  // =======================================================
+  // Save
+  var desc86 = new ActionDescriptor
+  desc86.putEnumerated(charIDToTypeID("PGIT"), charIDToTypeID("PGIT"), charIDToTypeID("PGIN"))
+  desc86.putEnumerated(charIDToTypeID("PNGf"), charIDToTypeID("PNGf"), charIDToTypeID("PGAd"))
+  desc86.putInteger(charIDToTypeID("Cmpr"), 9)
+
+  var desc85 = new ActionDescriptor
+  desc85.putObject(charIDToTypeID("As  "), charIDToTypeID("PNGF"), desc86)
+  desc85.putPath(charIDToTypeID("In  "), new File(filePath))
+  desc85.putInteger(charIDToTypeID("DocI"), 35)
+  desc85.putBoolean(charIDToTypeID("Cpy "), true)
+  desc85.putBoolean(charIDToTypeID("LwCs"), true)
+  desc85.putEnumerated(stringIDToTypeID("saveStage"), stringIDToTypeID("saveStageType"), stringIDToTypeID("saveBegin"))
+  executeAction(charIDToTypeID("save"), desc85, DialogModes.NO)
+}
