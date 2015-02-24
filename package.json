@@ -28,15 +28,16 @@
     "stream",
     "stream2"
   ],
-  "dependencies": [
-    "lockfile@~0.3",
-    "readable-stream"
-  ],
-  "devDependencies": [
-    "tap",
-    "JSONStream",
-    "concat-stream"
-  ],
+  "dependencies": {
+    "jstransform": "^9.1",
+    "lockfile": "^0.3",
+    "readable-stream": "^1.0"
+  },
+  "devDependencies": {
+    "JSONStream": "^0.10",
+    "concat-stream": "^1.4",
+    "tap": "^0.6"
+  },
   "os": [
     "darwin"
   ],
