@@ -12,6 +12,7 @@ require('./aftereffects').createStream(function jsx(stream, props){
   );
   
   stream.writeln(JSON.stringify(props));
+  stream.close(); // If you don't do this then After Effects will never disconnect from node.js and everything will just sit there forever
   
 }, [{lulz:Math.random(0)}])
 .pipe(process.stdout);
